@@ -1,0 +1,37 @@
+{
+  "name": "aria.dev/skills/validate",
+  "version": "1.0.0",
+  "schema_version": "1.0.0",
+  "description": "Validates OASF records and governance overlays against the schema. Checks required fields, sensitivity tier validity, and ceiling consistency. Used by CI/CD pipelines and the ARIA orchestrator.",
+  "skills": [
+    { "id": 40101, "name": "governance/validation/schema" },
+    { "id": 40102, "name": "governance/validation/policy" }
+  ],
+  "domains": [
+    { "name": "platform/aria/governance" }
+  ],
+  "modules": [
+    {
+      "type": "mcp_server",
+      "transport": "stdio",
+      "tools": [
+        "validate_oasf_record",
+        "validate_governance_overlay",
+        "check_sensitivity_ceiling",
+        "validate_full"
+      ]
+    }
+  ],
+  "locators": [
+    {
+      "type": "source_code",
+      "urls": ["https://github.com/joshgarverick/aria-skills/tree/main/skills/aria-skill-validate"]
+    },
+    {
+      "type": "oci_artifact",
+      "urls": ["ghcr.io/joshgarverick/aria-skills/validate:1.0.0"]
+    }
+  ],
+  "authors": ["Josh Garverick <josh.garverick@xebia.com>"],
+  "created_at": "2026-05-01T00:00:00Z"
+}

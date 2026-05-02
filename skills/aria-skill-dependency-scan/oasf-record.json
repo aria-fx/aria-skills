@@ -1,0 +1,51 @@
+{
+  "name": "aria.dev/skills/dependency-scan",
+  "version": "1.0.0",
+  "schema_version": "1.0.0",
+  "description": "Scans transitive dependencies of ARIA assets for sensitivity ceiling violations, deprecated dependencies, and policy drift. Used by compliance workflows and the apm audit command.",
+  "skills": [
+    {
+      "id": 40401,
+      "name": "governance/compliance/dependency_audit"
+    },
+    {
+      "id": 40402,
+      "name": "governance/compliance/ceiling_check"
+    }
+  ],
+  "domains": [
+    {
+      "name": "platform/aria/compliance"
+    }
+  ],
+  "modules": [
+    {
+      "type": "mcp_server",
+      "transport": "stdio",
+      "tools": [
+        "scan_transitive_deps",
+        "check_ceiling_violations",
+        "detect_deprecated_deps",
+        "generate_compliance_report"
+      ]
+    }
+  ],
+  "locators": [
+    {
+      "type": "source_code",
+      "urls": [
+        "https://github.com/joshgarverick/aria-skills/tree/main/skills/aria-skill-dependency-scan"
+      ]
+    },
+    {
+      "type": "oci_artifact",
+      "urls": [
+        "ghcr.io/joshgarverick/aria-skills/dependency-scan:1.0.0"
+      ]
+    }
+  ],
+  "authors": [
+    "Josh Garverick <josh.garverick@xebia.com>"
+  ],
+  "created_at": "2026-05-01T00:00:00Z"
+}

@@ -1,0 +1,39 @@
+{
+  "name": "aria.dev/agents/primitive-creator",
+  "version": "1.0.0",
+  "schema_version": "1.0.0",
+  "description": "Specialized agent for creating new ARIA primitives. Consumes the scaffold and catalog skills to help developers generate new agents, skills, and knowledge bases with proper OASF classification and governance overlays. Can check the catalog to avoid duplicates before scaffolding.",
+  "skills": [
+    { "id": 40601, "name": "generation/scaffold/asset" },
+    { "id": 40602, "name": "generation/scaffold/oasf" },
+    { "id": 40501, "name": "discovery/search/taxonomy" }
+  ],
+  "domains": [
+    { "name": "platform/aria/tooling" }
+  ],
+  "modules": [
+    {
+      "type": "mcp_server",
+      "ref": "aria.dev/skills/scaffold",
+      "version": "1.0.0"
+    },
+    {
+      "type": "mcp_server",
+      "ref": "aria.dev/skills/catalog",
+      "version": "1.0.0"
+    },
+    {
+      "type": "mcp_server",
+      "ref": "aria.dev/skills/validate",
+      "version": "1.0.0"
+    }
+  ],
+  "locators": [
+    {
+      "type": "source_code",
+      "urls": ["https://github.com/joshgarverick/aria-skills/tree/main/agents/primitive-creator"]
+    }
+  ],
+  "authors": ["Josh Garverick <josh.garverick@xebia.com>"],
+  "created_at": "2026-05-01T00:00:00Z"
+}

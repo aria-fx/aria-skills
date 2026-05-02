@@ -1,0 +1,35 @@
+{
+  "name": "aria.dev/agents/compliance-auditor",
+  "version": "1.0.0",
+  "schema_version": "1.0.0",
+  "description": "Specialized agent for ARIA compliance auditing. Consumes the dependency-scan and purview-sync skills from the ARIA registry to perform automated compliance assessments, generate audit reports, and verify governance posture across the AI asset inventory.",
+  "skills": [
+    { "id": 40401, "name": "governance/compliance/dependency_audit" },
+    { "id": 40402, "name": "governance/compliance/ceiling_check" },
+    { "id": 40301, "name": "governance/purview/labels" },
+    { "id": 40302, "name": "governance/purview/lineage" }
+  ],
+  "domains": [
+    { "name": "platform/aria/compliance" }
+  ],
+  "modules": [
+    {
+      "type": "mcp_server",
+      "ref": "aria.dev/skills/dependency-scan",
+      "version": "1.0.0"
+    },
+    {
+      "type": "mcp_server",
+      "ref": "aria.dev/skills/purview-sync",
+      "version": "1.0.0"
+    }
+  ],
+  "locators": [
+    {
+      "type": "source_code",
+      "urls": ["https://github.com/joshgarverick/aria-skills/tree/main/agents/compliance-auditor"]
+    }
+  ],
+  "authors": ["Josh Garverick <josh.garverick@xebia.com>"],
+  "created_at": "2026-05-01T00:00:00Z"
+}

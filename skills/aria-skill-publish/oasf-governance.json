@@ -1,0 +1,17 @@
+{
+  "governance": {
+    "sensitivity_tier": "internal",
+    "data_classifications": [],
+    "purview_label_id": "",
+    "approval_chain": [
+      "ai-platform-engineering"
+    ],
+    "allowed_consumers": [],
+    "max_data_retention_days": 365,
+    "audit_level": "standard",
+    "dependency_sensitivity_ceiling": "confidential",
+    "compliance_frameworks": [
+      "SOC2"
+    ]
+  }
+}

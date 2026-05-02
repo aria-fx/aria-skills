@@ -1,0 +1,51 @@
+{
+  "name": "aria.dev/skills/purview-sync",
+  "version": "1.0.0",
+  "schema_version": "1.0.0",
+  "description": "Synchronizes ARIA governance metadata with Microsoft Purview. Applies sensitivity labels, creates Data Map entities, and establishes lineage edges between AI assets.",
+  "skills": [
+    {
+      "id": 40301,
+      "name": "governance/purview/labels"
+    },
+    {
+      "id": 40302,
+      "name": "governance/purview/lineage"
+    }
+  ],
+  "domains": [
+    {
+      "name": "platform/aria/governance"
+    }
+  ],
+  "modules": [
+    {
+      "type": "mcp_server",
+      "transport": "stdio",
+      "tools": [
+        "apply_sensitivity_label",
+        "create_data_map_entity",
+        "create_lineage_edge",
+        "evaluate_dlp_policy"
+      ]
+    }
+  ],
+  "locators": [
+    {
+      "type": "source_code",
+      "urls": [
+        "https://github.com/joshgarverick/aria-skills/tree/main/skills/aria-skill-purview-sync"
+      ]
+    },
+    {
+      "type": "oci_artifact",
+      "urls": [
+        "ghcr.io/joshgarverick/aria-skills/purview-sync:1.0.0"
+      ]
+    }
+  ],
+  "authors": [
+    "Josh Garverick <josh.garverick@xebia.com>"
+  ],
+  "created_at": "2026-05-01T00:00:00Z"
+}

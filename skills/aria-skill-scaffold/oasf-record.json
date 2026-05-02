@@ -1,0 +1,51 @@
+{
+  "name": "aria.dev/skills/scaffold",
+  "version": "1.0.0",
+  "schema_version": "1.0.0",
+  "description": "Generates new ARIA assets from templates. Creates OASF records with suggested skill taxonomy entries, governance overlays with sensible defaults, and directory structure matching the ARIA template repo.",
+  "skills": [
+    {
+      "id": 40601,
+      "name": "generation/scaffold/asset"
+    },
+    {
+      "id": 40602,
+      "name": "generation/scaffold/oasf"
+    }
+  ],
+  "domains": [
+    {
+      "name": "platform/aria/tooling"
+    }
+  ],
+  "modules": [
+    {
+      "type": "mcp_server",
+      "transport": "stdio",
+      "tools": [
+        "scaffold_from_template",
+        "generate_oasf_record",
+        "suggest_skill_taxonomy",
+        "propose_governance_overlay"
+      ]
+    }
+  ],
+  "locators": [
+    {
+      "type": "source_code",
+      "urls": [
+        "https://github.com/joshgarverick/aria-skills/tree/main/skills/aria-skill-scaffold"
+      ]
+    },
+    {
+      "type": "oci_artifact",
+      "urls": [
+        "ghcr.io/joshgarverick/aria-skills/scaffold:1.0.0"
+      ]
+    }
+  ],
+  "authors": [
+    "Josh Garverick <josh.garverick@xebia.com>"
+  ],
+  "created_at": "2026-05-01T00:00:00Z"
+}

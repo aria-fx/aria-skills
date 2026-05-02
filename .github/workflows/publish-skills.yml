@@ -1,0 +1,121 @@
+name: Publish ARIA Skills
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'skills/*/oasf-record.json'
+      - 'skills/*/server.mjs'
+      - 'orchestrator/oasf-record.json'
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  detect-changes:
+    name: Detect changed skills
+    runs-on: ubuntu-latest
+    outputs:
+      skills: ${{ steps.changes.outputs.skills }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Detect changed skill directories
+        id: changes
+        run: |
+          CHANGED=$(git diff --name-only HEAD~1 HEAD | grep '^skills/' | cut -d/ -f2 | sort -u | jq -R -s -c 'split("\n") | map(select(. != ""))')
+          echo "skills=$CHANGED" >> $GITHUB_OUTPUT
+          echo "Changed skills: $CHANGED"
+
+  publish-skill:
+    name: Publish ${{ matrix.skill }}
+    runs-on: ubuntu-latest
+    needs: detect-changes
+    if: needs.detect-changes.outputs.skills != '[]'
+    strategy:
+      matrix:
+        skill: ${{ fromJson(needs.detect-changes.outputs.skills) }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Read OASF Record
+        id: oasf
+        run: |
+          VERSION=$(jq -r '.version' skills/${{ matrix.skill }}/oasf-record.json)
+          NAME=$(jq -r '.name' skills/${{ matrix.skill }}/oasf-record.json | tr '/' '-')
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "name=$NAME" >> $GITHUB_OUTPUT
+
+      - name: Validate OASF Record
+        run: |
+          node -e "
+          const fs = require('fs');
+          const record = JSON.parse(fs.readFileSync('skills/${{ matrix.skill }}/oasf-record.json'));
+          const gov = JSON.parse(fs.readFileSync('skills/${{ matrix.skill }}/oasf-governance.json'));
+          const required = ['name','version','schema_version','skills','locators','authors'];
+          const missing = required.filter(f => !record[f]);
+          if (missing.length) { console.error('Missing:', missing); process.exit(1); }
+          const tiers = ['public','internal','confidential','highly_confidential','restricted'];
+          const g = gov.governance;
+          if (!tiers.includes(g.sensitivity_tier)) { console.error('Bad tier:', g.sensitivity_tier); process.exit(1); }
+          if (tiers.indexOf(g.sensitivity_tier) > tiers.indexOf(g.dependency_sensitivity_ceiling)) {
+            console.error('Ceiling violation'); process.exit(1);
+          }
+          console.log('✓ Validation passed:', record.name, 'v'+record.version);
+          "
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push OCI artifact
+        run: |
+          IMAGE="ghcr.io/${{ github.repository_owner }}/aria-skills/${{ steps.oasf.outputs.name }}"
+          TAG="${{ steps.oasf.outputs.version }}"
+          cd skills/${{ matrix.skill }}
+          docker build -t "${IMAGE}:${TAG}" -t "${IMAGE}:latest" .
+          docker push "${IMAGE}:${TAG}"
+          docker push "${IMAGE}:latest"
+          echo "Published ${IMAGE}:${TAG}"
+
+  publish-orchestrator:
+    name: Publish orchestrator
+    runs-on: ubuntu-latest
+    needs: publish-skill
+    if: always()
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Read orchestrator version
+        id: oasf
+        run: |
+          VERSION=$(jq -r '.version' orchestrator/oasf-record.json)
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Package and push orchestrator
+        run: |
+          IMAGE="ghcr.io/${{ github.repository_owner }}/aria-skills/orchestrator"
+          TAG="${{ steps.oasf.outputs.version }}"
+          cd orchestrator
+          echo "FROM scratch" > Dockerfile
+          echo "COPY oasf-record.json /oasf-record.json" >> Dockerfile
+          echo "COPY oasf-governance.json /oasf-governance.json" >> Dockerfile
+          echo "COPY mcp-config.json /mcp-config.json" >> Dockerfile
+          docker build -t "${IMAGE}:${TAG}" -t "${IMAGE}:latest" .
+          docker push "${IMAGE}:${TAG}"
+          docker push "${IMAGE}:latest"
+          echo "Published ${IMAGE}:${TAG}"

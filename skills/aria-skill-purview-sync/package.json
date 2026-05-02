@@ -1,0 +1,16 @@
+{
+  "name": "@aria/skill-purview-sync",
+  "version": "1.0.0",
+  "description": "ARIA skill: Synchronizes ARIA governance metadata with Microsoft Purview...",
+  "type": "module",
+  "main": "server.mjs",
+  "bin": {
+    "aria-skill-purview-sync": "server.mjs"
+  },
+  "scripts": {
+    "start": "node server.mjs"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.0"
+  }
+}

@@ -1,0 +1,52 @@
+{
+  "name": "aria.dev/skills/catalog",
+  "version": "1.0.0",
+  "schema_version": "1.0.0",
+  "description": "Indexes published ARIA assets and serves the discovery API. Supports search by OASF skill taxonomy, domain, and keyword. Powers the Claude Desktop marketplace panel and web catalog portal.",
+  "skills": [
+    {
+      "id": 40501,
+      "name": "discovery/search/taxonomy"
+    },
+    {
+      "id": 40502,
+      "name": "discovery/catalog/index"
+    }
+  ],
+  "domains": [
+    {
+      "name": "platform/aria/discovery"
+    }
+  ],
+  "modules": [
+    {
+      "type": "mcp_server",
+      "transport": "stdio",
+      "tools": [
+        "index_asset",
+        "search_assets",
+        "get_asset_manifest",
+        "list_versions",
+        "filter_by_governance"
+      ]
+    }
+  ],
+  "locators": [
+    {
+      "type": "source_code",
+      "urls": [
+        "https://github.com/joshgarverick/aria-skills/tree/main/skills/aria-skill-catalog"
+      ]
+    },
+    {
+      "type": "oci_artifact",
+      "urls": [
+        "ghcr.io/joshgarverick/aria-skills/catalog:1.0.0"
+      ]
+    }
+  ],
+  "authors": [
+    "Josh Garverick <josh.garverick@xebia.com>"
+  ],
+  "created_at": "2026-05-01T00:00:00Z"
+}

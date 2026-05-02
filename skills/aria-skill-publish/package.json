@@ -1,0 +1,16 @@
+{
+  "name": "@aria/skill-publish",
+  "version": "1.0.0",
+  "description": "ARIA skill: Packages ARIA assets as OCI artifacts and pushes them to con...",
+  "type": "module",
+  "main": "server.mjs",
+  "bin": {
+    "aria-skill-publish": "server.mjs"
+  },
+  "scripts": {
+    "start": "node server.mjs"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.0"
+  }
+}

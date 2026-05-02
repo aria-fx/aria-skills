@@ -1,0 +1,51 @@
+{
+  "name": "aria.dev/skills/publish",
+  "version": "1.0.0",
+  "schema_version": "1.0.0",
+  "description": "Packages ARIA assets as OCI artifacts and pushes them to container registries. Handles version tagging, content-addressed digest calculation, and agent directory updates.",
+  "skills": [
+    {
+      "id": 40201,
+      "name": "registry/oci/publish"
+    },
+    {
+      "id": 40202,
+      "name": "registry/oci/tag"
+    }
+  ],
+  "domains": [
+    {
+      "name": "platform/aria/registry"
+    }
+  ],
+  "modules": [
+    {
+      "type": "mcp_server",
+      "transport": "stdio",
+      "tools": [
+        "build_oci_artifact",
+        "push_to_registry",
+        "calculate_cid",
+        "tag_release"
+      ]
+    }
+  ],
+  "locators": [
+    {
+      "type": "source_code",
+      "urls": [
+        "https://github.com/joshgarverick/aria-skills/tree/main/skills/aria-skill-publish"
+      ]
+    },
+    {
+      "type": "oci_artifact",
+      "urls": [
+        "ghcr.io/joshgarverick/aria-skills/publish:1.0.0"
+      ]
+    }
+  ],
+  "authors": [
+    "Josh Garverick <josh.garverick@xebia.com>"
+  ],
+  "created_at": "2026-05-01T00:00:00Z"
+}

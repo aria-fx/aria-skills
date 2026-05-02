@@ -1,0 +1,16 @@
+{
+  "name": "@aria/skill-scaffold",
+  "version": "1.0.0",
+  "description": "ARIA skill: Generates new ARIA assets from templates. Creates OASF recor...",
+  "type": "module",
+  "main": "server.mjs",
+  "bin": {
+    "aria-skill-scaffold": "server.mjs"
+  },
+  "scripts": {
+    "start": "node server.mjs"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.0"
+  }
+}

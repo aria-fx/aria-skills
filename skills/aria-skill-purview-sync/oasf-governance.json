@@ -1,0 +1,20 @@
+{
+  "governance": {
+    "sensitivity_tier": "confidential",
+    "data_classifications": [
+      "PII"
+    ],
+    "purview_label_id": "",
+    "approval_chain": [
+      "ai-platform-engineering",
+      "ai-governance"
+    ],
+    "allowed_consumers": [],
+    "max_data_retention_days": 365,
+    "audit_level": "full",
+    "dependency_sensitivity_ceiling": "highly_confidential",
+    "compliance_frameworks": [
+      "SOC2"
+    ]
+  }
+}

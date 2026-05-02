@@ -1,0 +1,20 @@
+{
+  "mcpServers": {
+    "aria-dependency-scan": {
+      "command": "node",
+      "args": ["../../skills/aria-skill-dependency-scan/server.mjs"],
+      "metadata": {
+        "oasf_ref": "aria.dev/skills/dependency-scan@1.0.0",
+        "installed_via": "apm install ghcr.io/joshgarverick/aria-skills/dependency-scan:1.0.0"
+      }
+    },
+    "aria-purview-sync": {
+      "command": "node",
+      "args": ["../../skills/aria-skill-purview-sync/server.mjs"],
+      "metadata": {
+        "oasf_ref": "aria.dev/skills/purview-sync@1.0.0",
+        "installed_via": "apm install ghcr.io/joshgarverick/aria-skills/purview-sync:1.0.0"
+      }
+    }
+  }
+}

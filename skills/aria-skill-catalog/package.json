@@ -1,0 +1,16 @@
+{
+  "name": "@aria/skill-catalog",
+  "version": "1.0.0",
+  "description": "ARIA skill: Indexes published ARIA assets and serves the discovery API. ...",
+  "type": "module",
+  "main": "server.mjs",
+  "bin": {
+    "aria-skill-catalog": "server.mjs"
+  },
+  "scripts": {
+    "start": "node server.mjs"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.0"
+  }
+}

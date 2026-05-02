@@ -1,0 +1,13 @@
+{
+  "governance": {
+    "sensitivity_tier": "confidential",
+    "data_classifications": ["PII"],
+    "purview_label_id": "",
+    "approval_chain": ["ai-governance", "compliance-officer"],
+    "allowed_consumers": ["ai-governance", "compliance-team", "audit-team"],
+    "max_data_retention_days": 730,
+    "audit_level": "full",
+    "dependency_sensitivity_ceiling": "highly_confidential",
+    "compliance_frameworks": ["SOC2", "HIPAA", "GDPR"]
+  }
+}

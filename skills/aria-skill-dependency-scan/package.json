@@ -1,0 +1,16 @@
+{
+  "name": "@aria/skill-dependency-scan",
+  "version": "1.0.0",
+  "description": "ARIA skill: Scans transitive dependencies of ARIA assets for sensitivity...",
+  "type": "module",
+  "main": "server.mjs",
+  "bin": {
+    "aria-skill-dependency-scan": "server.mjs"
+  },
+  "scripts": {
+    "start": "node server.mjs"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.0"
+  }
+}

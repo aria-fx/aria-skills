@@ -1,0 +1,52 @@
+{
+  "mcpServers": {
+    "aria-validate": {
+      "command": "node",
+      "args": ["../skills/aria-skill-validate/server.mjs"],
+      "metadata": {
+        "oasf_ref": "aria.dev/skills/validate@1.0.0",
+        "sensitivity_tier": "internal"
+      }
+    },
+    "aria-publish": {
+      "command": "node",
+      "args": ["../skills/aria-skill-publish/server.mjs"],
+      "metadata": {
+        "oasf_ref": "aria.dev/skills/publish@1.0.0",
+        "sensitivity_tier": "internal"
+      }
+    },
+    "aria-purview-sync": {
+      "command": "node",
+      "args": ["../skills/aria-skill-purview-sync/server.mjs"],
+      "metadata": {
+        "oasf_ref": "aria.dev/skills/purview-sync@1.0.0",
+        "sensitivity_tier": "confidential"
+      }
+    },
+    "aria-dependency-scan": {
+      "command": "node",
+      "args": ["../skills/aria-skill-dependency-scan/server.mjs"],
+      "metadata": {
+        "oasf_ref": "aria.dev/skills/dependency-scan@1.0.0",
+        "sensitivity_tier": "confidential"
+      }
+    },
+    "aria-catalog": {
+      "command": "node",
+      "args": ["../skills/aria-skill-catalog/server.mjs"],
+      "metadata": {
+        "oasf_ref": "aria.dev/skills/catalog@1.0.0",
+        "sensitivity_tier": "internal"
+      }
+    },
+    "aria-scaffold": {
+      "command": "node",
+      "args": ["../skills/aria-skill-scaffold/server.mjs"],
+      "metadata": {
+        "oasf_ref": "aria.dev/skills/scaffold@1.0.0",
+        "sensitivity_tier": "internal"
+      }
+    }
+  }
+}

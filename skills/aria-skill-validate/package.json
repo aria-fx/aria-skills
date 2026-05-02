@@ -1,0 +1,15 @@
+{
+  "name": "@aria/skill-validate",
+  "version": "1.0.0",
+  "description": "ARIA skill: OASF record and governance overlay validation",
+  "type": "module",
+  "main": "server.mjs",
+  "bin": { "aria-skill-validate": "server.mjs" },
+  "scripts": {
+    "start": "node server.mjs",
+    "test": "node --test tests/"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.0"
+  }
+}
