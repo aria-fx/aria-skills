@@ -9,28 +9,9 @@ published as an OCI artifact through the same CI/CD pipeline it helps enforce.**
 
 ## Architecture
 
-```
-┌─────────────────────────────────────────────────────────────────────┐
-│                      ARIA Orchestrator Agent                        │
-│  Consumes all skills · Wires workflows · OASF-governed itself       │
-└──────┬──────┬──────┬──────┬──────┬──────┬───────────────────────────┘
-       │      │      │      │      │      │
-       ▼      ▼      ▼      ▼      ▼      ▼
-   ┌──────┐┌──────┐┌──────┐┌──────┐┌──────┐┌──────┐
-   │Valid.││Pub.  ││Purv. ││Dep.  ││Cat.  ││Scaff.│  ← OCI artifacts
-   │      ││      ││Sync  ││Scan  ││      ││      │  ← OASF records
-   │int.  ││int.  ││conf. ││conf. ││int.  ││int.  │  ← Sensitivity
-   └──────┘└──────┘└──────┘└──────┘└──────┘└──────┘
+![ARIA architecture diagram](docs/diagrams/aria-architecture.svg)
 
-   Specialized agents compose subsets:
-
-   ┌───────────────────────┐    ┌───────────────────────┐
-   │ Compliance Auditor    │    │ Primitive Creator      │
-   │ ┌─────────┐┌────────┐│    │ ┌────────┐┌─────────┐ │
-   │ │Dep. Scan││Purview ││    │ │Scaffold││Catalog  │ │
-   │ └─────────┘└────────┘│    │ └────────┘└─────────┘ │
-   └───────────────────────┘    └───────────────────────┘
-```
+Brand-aligned architecture view with orchestrator, governed skills, and specialized agents.
 
 ## Skills
 
@@ -117,34 +98,6 @@ OASF record that gets checked. It's turtles all the way down.
 
 ## Repository Structure
 
-```
-aria-skills/
-├── skills/
-│   ├── aria-skill-validate/       # OASF schema + governance validation
-│   │   ├── oasf-record.json
-│   │   ├── oasf-governance.json
-│   │   ├── server.mjs             # MCP server implementation
-│   │   ├── package.json
-│   │   └── Dockerfile
-│   ├── aria-skill-publish/        # OCI artifact packaging + registry push
-│   ├── aria-skill-purview-sync/   # Purview label + lineage synchronization
-│   ├── aria-skill-dependency-scan/# Transitive dependency + ceiling auditing
-│   ├── aria-skill-catalog/        # Asset indexing + discovery API
-│   └── aria-skill-scaffold/       # New asset generation from templates
-├── orchestrator/
-│   ├── oasf-record.json           # Consumes all 6 skills
-│   ├── oasf-governance.json
-│   └── mcp-config.json            # MCP wiring for all skills
-├── agents/
-│   ├── compliance-auditor/        # Specialized: dependency-scan + purview-sync
-│   │   ├── oasf-record.json
-│   │   ├── oasf-governance.json
-│   │   └── mcp-config.json
-│   └── primitive-creator/         # Specialized: scaffold + catalog + validate
-│       ├── oasf-record.json
-│       ├── oasf-governance.json
-│       └── mcp-config.json
-└── .github/
-    └── workflows/
-        └── publish-skills.yml     # Validates + publishes all skills as OCI
-```
+![ARIA repository structure diagram](docs/diagrams/aria-repository-structure.svg)
+
+Brand-aligned repository map showing skills, orchestrator, specialized agents, and CI workflow.

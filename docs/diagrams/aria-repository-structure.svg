@@ -1,0 +1,111 @@
+<svg width="1400" height="980" viewBox="0 0 1400 980" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">ARIA Skills Repository Structure</title>
+  <desc id="desc">Visual map of skills, orchestrator, and specialized agents in the aria-skills repository.</desc>
+
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1400" y2="980" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#F6FAFF"/>
+      <stop offset="1" stop-color="#F3FCF8"/>
+    </linearGradient>
+    <filter id="shadow" x="0" y="0" width="2000" height="2000" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="5" stdDeviation="8" flood-opacity="0.1"/>
+    </filter>
+    <style>
+      .h1 { font: 700 24px 'Segoe UI', 'Helvetica Neue', Arial, sans-serif; fill: #12314F; }
+      .h2 { font: 700 17px 'Segoe UI', 'Helvetica Neue', Arial, sans-serif; fill: #183E64; }
+      .node { font: 700 14px 'Segoe UI', 'Helvetica Neue', Arial, sans-serif; fill: #0F2942; }
+      .sub { font: 500 12px 'Segoe UI', 'Helvetica Neue', Arial, sans-serif; fill: #3A5B79; }
+      .small { font: 500 11px 'Segoe UI', 'Helvetica Neue', Arial, sans-serif; fill: #446887; }
+      .line { stroke: #5A88BA; stroke-width: 2.2; stroke-linecap: round; }
+    </style>
+  </defs>
+
+  <rect width="1400" height="980" fill="url(#bg)"/>
+  <text x="700" y="64" text-anchor="middle" class="h1">aria-skills Repository Structure</text>
+  <text x="700" y="92" text-anchor="middle" class="sub">Governed ARIA skills, orchestrator, and specialized agents</text>
+
+  <g filter="url(#shadow)">
+    <rect x="540" y="130" width="320" height="80" rx="14" fill="#0B5CAB"/>
+    <text x="700" y="176" text-anchor="middle" style="font:700 19px 'Segoe UI', 'Helvetica Neue', Arial, sans-serif; fill:#FFFFFF;">aria-skills/</text>
+  </g>
+
+  <line x1="700" y1="210" x2="700" y2="260" class="line"/>
+  <line x1="240" y1="260" x2="1160" y2="260" class="line"/>
+  <line x1="240" y1="260" x2="240" y2="300" class="line"/>
+  <line x1="700" y1="260" x2="700" y2="300" class="line"/>
+  <line x1="1160" y1="260" x2="1160" y2="300" class="line"/>
+
+  <g filter="url(#shadow)">
+    <rect x="90" y="300" width="300" height="580" rx="16" fill="#FFFFFF" stroke="#C6DAEE"/>
+    <rect x="90" y="300" width="300" height="44" rx="16" fill="#F1F8FF"/>
+    <text x="240" y="328" text-anchor="middle" class="h2">skills/</text>
+
+    <rect x="114" y="360" width="252" height="72" rx="10" fill="#F8FBFF" stroke="#D1E0EF"/>
+    <text x="126" y="388" class="node">aria-skill-validate/</text>
+    <text x="126" y="408" class="small">OASF schema and governance validation</text>
+
+    <rect x="114" y="442" width="252" height="72" rx="10" fill="#F8FBFF" stroke="#D1E0EF"/>
+    <text x="126" y="470" class="node">aria-skill-publish/</text>
+    <text x="126" y="490" class="small">OCI artifact packaging and push</text>
+
+    <rect x="114" y="524" width="252" height="72" rx="10" fill="#FFF9F0" stroke="#F0D9B8"/>
+    <text x="126" y="552" class="node">aria-skill-purview-sync/</text>
+    <text x="126" y="572" class="small">Purview labels and lineage sync</text>
+
+    <rect x="114" y="606" width="252" height="72" rx="10" fill="#FFF9F0" stroke="#F0D9B8"/>
+    <text x="126" y="634" class="node">aria-skill-dependency-scan/</text>
+    <text x="126" y="654" class="small">Transitive dependency auditing</text>
+
+    <rect x="114" y="688" width="252" height="72" rx="10" fill="#F8FBFF" stroke="#D1E0EF"/>
+    <text x="126" y="716" class="node">aria-skill-catalog/</text>
+    <text x="126" y="736" class="small">Asset indexing and discovery API</text>
+
+    <rect x="114" y="770" width="252" height="72" rx="10" fill="#F8FBFF" stroke="#D1E0EF"/>
+    <text x="126" y="798" class="node">aria-skill-scaffold/</text>
+    <text x="126" y="818" class="small">Template-based asset generation</text>
+  </g>
+
+  <g filter="url(#shadow)">
+    <rect x="470" y="300" width="460" height="250" rx="16" fill="#FFFFFF" stroke="#C6DAEE"/>
+    <rect x="470" y="300" width="460" height="44" rx="16" fill="#ECFAF6"/>
+    <text x="700" y="328" text-anchor="middle" class="h2">orchestrator/</text>
+
+    <rect x="500" y="366" width="400" height="50" rx="9" fill="#F7FBFF" stroke="#D1E0EF"/>
+    <text x="516" y="397" class="node">oasf-record.json</text>
+
+    <rect x="500" y="426" width="400" height="50" rx="9" fill="#F7FBFF" stroke="#D1E0EF"/>
+    <text x="516" y="457" class="node">oasf-governance.json</text>
+
+    <rect x="500" y="486" width="400" height="50" rx="9" fill="#F7FBFF" stroke="#D1E0EF"/>
+    <text x="516" y="517" class="node">mcp-config.json</text>
+  </g>
+
+  <g filter="url(#shadow)">
+    <rect x="1010" y="300" width="300" height="430" rx="16" fill="#FFFFFF" stroke="#C6DAEE"/>
+    <rect x="1010" y="300" width="300" height="44" rx="16" fill="#F1F8FF"/>
+    <text x="1160" y="328" text-anchor="middle" class="h2">agents/</text>
+
+    <rect x="1036" y="364" width="248" height="160" rx="10" fill="#F7FBFF" stroke="#D1E0EF"/>
+    <text x="1048" y="392" class="node">compliance-auditor/</text>
+    <text x="1048" y="416" class="sub">- oasf-record.json</text>
+    <text x="1048" y="436" class="sub">- oasf-governance.json</text>
+    <text x="1048" y="456" class="sub">- mcp-config.json</text>
+
+    <rect x="1036" y="538" width="248" height="160" rx="10" fill="#F7FBFF" stroke="#D1E0EF"/>
+    <text x="1048" y="566" class="node">primitive-creator/</text>
+    <text x="1048" y="590" class="sub">- oasf-record.json</text>
+    <text x="1048" y="610" class="sub">- oasf-governance.json</text>
+    <text x="1048" y="630" class="sub">- mcp-config.json</text>
+  </g>
+
+  <g filter="url(#shadow)">
+    <rect x="470" y="574" width="460" height="156" rx="16" fill="#FFFFFF" stroke="#C6DAEE"/>
+    <rect x="470" y="574" width="460" height="44" rx="16" fill="#F8F6FF"/>
+    <text x="700" y="602" text-anchor="middle" class="h2">.github/workflows/</text>
+
+    <rect x="500" y="638" width="400" height="68" rx="9" fill="#F7FBFF" stroke="#D1E0EF"/>
+    <text x="516" y="668" class="node">publish-skills.yml</text>
+    <text x="516" y="688" class="small">Validates manifests and publishes OCI artifacts</text>
+  </g>
+
+</svg>
