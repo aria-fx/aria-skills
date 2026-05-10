@@ -1,0 +1,51 @@
+{
+  "name": "aria.dev/agents/aria-super",
+  "version": "1.0.0",
+  "schema_version": "1.0.0",
+  "description": "Cross-repository architecture and review agent for the ARIA ecosystem. Coordinates design and review workflows across framework, gateway, and skills using governed ARIA skills.",
+  "skills": [
+    { "id": 40101, "name": "governance/validation/schema" },
+    { "id": 40102, "name": "governance/validation/policy" },
+    { "id": 40401, "name": "governance/compliance/dependency_audit" },
+    { "id": 40501, "name": "discovery/search/taxonomy" },
+    { "id": 40601, "name": "generation/scaffold/asset" }
+  ],
+  "domains": [
+    { "name": "platform/aria/architecture" },
+    { "name": "platform/aria/governance" }
+  ],
+  "modules": [
+    {
+      "type": "mcp_server",
+      "ref": "aria.dev/skills/validate",
+      "version": "1.0.0"
+    },
+    {
+      "type": "mcp_server",
+      "ref": "aria.dev/skills/catalog",
+      "version": "1.0.0"
+    },
+    {
+      "type": "mcp_server",
+      "ref": "aria.dev/skills/dependency-scan",
+      "version": "1.0.0"
+    },
+    {
+      "type": "mcp_server",
+      "ref": "aria.dev/skills/scaffold",
+      "version": "1.0.0"
+    }
+  ],
+  "locators": [
+    {
+      "type": "source_code",
+      "urls": ["https://github.com/aria-fx/aria-skills/tree/main/agents/aria-super"]
+    },
+    {
+      "type": "oci_artifact",
+      "urls": ["ghcr.io/aria-fx/aria-skills/aria-super:1.0.0"]
+    }
+  ],
+  "authors": ["Josh Garverick <josh.garverick@xebia.com>"],
+  "created_at": "2026-05-10T00:00:00Z"
+}
