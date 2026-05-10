@@ -1,0 +1,34 @@
+{
+  "agents": {
+    "aria-super": {
+      "name": "aria.dev/agents/aria-super",
+      "version": "1.0.0",
+      "description": "Cross-repo ARIA solution design and review agent",
+      "oasf_record": "./agents/aria-super/oasf-record.json",
+      "oasf_governance": "./agents/aria-super/oasf-governance.json",
+      "mcp_config": "./agents/aria-super/mcp-config.json",
+      "state": "published",
+      "published_at": "2026-05-10T16:30:00Z"
+    },
+    "gateway-contract-drift-reviewer": {
+      "name": "aria.dev/agents/gateway-contract-drift-reviewer",
+      "version": "1.0.0",
+      "description": "API contract drift detection and specification alignment agent",
+      "oasf_record": "./agents/gateway-contract-drift-reviewer/oasf-record.json",
+      "oasf_governance": "./agents/gateway-contract-drift-reviewer/oasf-governance.json",
+      "mcp_config": "./agents/gateway-contract-drift-reviewer/mcp-config.json",
+      "state": "published",
+      "published_at": "2026-05-10T16:30:00Z"
+    },
+    "skill-lifecycle-reviewer": {
+      "name": "aria.dev/agents/skill-lifecycle-reviewer",
+      "version": "1.0.0",
+      "description": "Skill governance and lifecycle workflow validation agent",
+      "oasf_record": "./agents/skill-lifecycle-reviewer/oasf-record.json",
+      "oasf_governance": "./agents/skill-lifecycle-reviewer/oasf-governance.json",
+      "mcp_config": "./agents/skill-lifecycle-reviewer/mcp-config.json",
+      "state": "published",
+      "published_at": "2026-05-10T16:30:00Z"
+    }
+  }
+}
