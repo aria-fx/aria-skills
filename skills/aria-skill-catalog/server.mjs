@@ -4,83 +4,18 @@
 
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { pathToFileURL } from "node:url";
 
 // In-memory catalog (production would use the OCI registry + Agent Directory)
 const catalog = new Map();
 
-const server = new Server(
-  { name: "aria-skill-catalog", version: "1.0.0" },
-  { capabilities: { tools: {} } }
-);
+const TIERS = ["public", "internal", "confidential", "highly_confidential", "restricted"];
 
-server.setRequestHandler("tools/list", async () => ({
-  tools: [
-    {
-      name: "index_asset",
-      description: "Add or update an ARIA asset in the catalog index.",
-      inputSchema: {
-        type: "object",
-        properties: {
-          record: { type: "object" },
-          governance: { type: "object" },
-          oci_reference: { type: "string" }
-        },
-        required: ["record"]
-      }
-    },
-    {
-      name: "search_assets",
-      description: "Search the catalog by OASF skill taxonomy, domain, keyword, or sensitivity tier.",
-      inputSchema: {
-        type: "object",
-        properties: {
-          skill: { type: "string", description: "OASF skill name filter" },
-          domain: { type: "string", description: "OASF domain filter" },
-          keyword: { type: "string", description: "Free-text keyword" },
-          max_sensitivity: { type: "string", description: "Filter assets at or below this tier" }
-        }
-      }
-    },
-    {
-      name: "get_asset_manifest",
-      description: "Retrieve the full OASF record and governance overlay for a specific asset.",
-      inputSchema: {
-        type: "object",
-        properties: {
-          name: { type: "string" },
-          version: { type: "string" }
-        },
-        required: ["name"]
-      }
-    },
-    {
-      name: "list_versions",
-      description: "List all published versions of an asset.",
-      inputSchema: {
-        type: "object",
-        properties: { name: { type: "string" } },
-        required: ["name"]
-      }
-    },
-    {
-      name: "filter_by_governance",
-      description: "Filter catalog results by consumer identity and sensitivity ceiling. Returns only assets the consumer is authorized to install.",
-      inputSchema: {
-        type: "object",
-        properties: {
-          consumer_id: { type: "string" },
-          sensitivity_ceiling: { type: "string" },
-          results: { type: "array", items: { type: "object" } }
-        },
-        required: ["consumer_id", "sensitivity_ceiling", "results"]
-      }
-    }
-  ]
-}));
+export function resetCatalog() {
+  catalog.clear();
+}
 
-server.setRequestHandler("tools/call", async (request) => {
-  const { name, arguments: args } = request.params;
-  const TIERS = ["public", "internal", "confidential", "highly_confidential", "restricted"];
+export async function handleToolCall(name, args = {}) {
   let result;
 
   switch (name) {
@@ -159,11 +94,100 @@ server.setRequestHandler("tools/call", async (request) => {
     }
 
     default:
-      return { content: [{ type: "text", text: `Unknown tool: ${name}` }], isError: true };
+      throw new Error(`Unknown tool: ${name}`);
   }
 
-  return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
-});
+  return result;
+}
 
-const transport = new StdioServerTransport();
-await server.connect(transport);
+async function startServer() {
+  const server = new Server(
+    { name: "aria-skill-catalog", version: "1.0.0" },
+    { capabilities: { tools: {} } }
+  );
+
+  server.setRequestHandler("tools/list", async () => ({
+    tools: [
+      {
+        name: "index_asset",
+        description: "Add or update an ARIA asset in the catalog index.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            record: { type: "object" },
+            governance: { type: "object" },
+            oci_reference: { type: "string" }
+          },
+          required: ["record"]
+        }
+      },
+      {
+        name: "search_assets",
+        description: "Search the catalog by OASF skill taxonomy, domain, keyword, or sensitivity tier.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            skill: { type: "string", description: "OASF skill name filter" },
+            domain: { type: "string", description: "OASF domain filter" },
+            keyword: { type: "string", description: "Free-text keyword" },
+            max_sensitivity: { type: "string", description: "Filter assets at or below this tier" }
+          }
+        }
+      },
+      {
+        name: "get_asset_manifest",
+        description: "Retrieve the full OASF record and governance overlay for a specific asset.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            name: { type: "string" },
+            version: { type: "string" }
+          },
+          required: ["name"]
+        }
+      },
+      {
+        name: "list_versions",
+        description: "List all published versions of an asset.",
+        inputSchema: {
+          type: "object",
+          properties: { name: { type: "string" } },
+          required: ["name"]
+        }
+      },
+      {
+        name: "filter_by_governance",
+        description: "Filter catalog results by consumer identity and sensitivity ceiling. Returns only assets the consumer is authorized to install.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            consumer_id: { type: "string" },
+            sensitivity_ceiling: { type: "string" },
+            results: { type: "array", items: { type: "object" } }
+          },
+          required: ["consumer_id", "sensitivity_ceiling", "results"]
+        }
+      }
+    ]
+  }));
+
+  server.setRequestHandler("tools/call", async (request) => {
+    const { name, arguments: args } = request.params;
+    try {
+      const result = await handleToolCall(name, args || {});
+      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+    } catch (error) {
+      return {
+        content: [{ type: "text", text: error?.message || String(error) }],
+        isError: true
+      };
+    }
+  });
+
+  const transport = new StdioServerTransport();
+  await server.connect(transport);
+}
+
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  await startServer();
+}

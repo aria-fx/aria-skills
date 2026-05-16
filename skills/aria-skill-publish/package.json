@@ -8,7 +8,8 @@
     "aria-skill-publish": "server.mjs"
   },
   "scripts": {
-    "start": "node server.mjs"
+    "start": "node server.mjs",
+    "test": "node ../../scripts/run-node-test-coverage.mjs tests/"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.12.0"

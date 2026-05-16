@@ -7,6 +7,7 @@
 
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { pathToFileURL } from "node:url";
 
 const SENSITIVITY_TIERS = [
   "public", "internal", "confidential",
@@ -134,64 +135,7 @@ function validateFull(record, governance) {
 
 // ── MCP Server ────────────────────────────────────────────
 
-const server = new Server(
-  { name: "aria-skill-validate", version: "1.0.0" },
-  { capabilities: { tools: {} } }
-);
-
-server.setRequestHandler("tools/list", async () => ({
-  tools: [
-    {
-      name: "validate_oasf_record",
-      description: "Validate an OASF record against the schema. Checks required fields, version format, and skill/author presence.",
-      inputSchema: {
-        type: "object",
-        properties: {
-          record: { type: "object", description: "The OASF record JSON object" }
-        },
-        required: ["record"]
-      }
-    },
-    {
-      name: "validate_governance_overlay",
-      description: "Validate a governance overlay. Checks required fields and sensitivity tier validity.",
-      inputSchema: {
-        type: "object",
-        properties: {
-          governance: { type: "object", description: "The governance overlay JSON object" }
-        },
-        required: ["governance"]
-      }
-    },
-    {
-      name: "check_sensitivity_ceiling",
-      description: "Check that an asset's sensitivity tier does not exceed its declared dependency ceiling.",
-      inputSchema: {
-        type: "object",
-        properties: {
-          governance: { type: "object", description: "The governance overlay JSON object" }
-        },
-        required: ["governance"]
-      }
-    },
-    {
-      name: "validate_full",
-      description: "Run all validation checks (record schema, governance overlay, sensitivity ceiling) in one call.",
-      inputSchema: {
-        type: "object",
-        properties: {
-          record: { type: "object", description: "The OASF record JSON object" },
-          governance: { type: "object", description: "The governance overlay JSON object" }
-        },
-        required: ["record", "governance"]
-      }
-    }
-  ]
-}));
-
-server.setRequestHandler("tools/call", async (request) => {
-  const { name, arguments: args } = request.params;
-
+export async function handleToolCall(name, args = {}) {
   let result;
   switch (name) {
     case "validate_oasf_record":
@@ -207,11 +151,85 @@ server.setRequestHandler("tools/call", async (request) => {
       result = validateFull(args.record, args.governance);
       break;
     default:
-      return { content: [{ type: "text", text: `Unknown tool: ${name}` }], isError: true };
+      throw new Error(`Unknown tool: ${name}`);
   }
 
-  return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
-});
+  return result;
+}
 
-const transport = new StdioServerTransport();
-await server.connect(transport);
+async function startServer() {
+  const server = new Server(
+    { name: "aria-skill-validate", version: "1.0.0" },
+    { capabilities: { tools: {} } }
+  );
+
+  server.setRequestHandler("tools/list", async () => ({
+    tools: [
+      {
+        name: "validate_oasf_record",
+        description: "Validate an OASF record against the schema. Checks required fields, version format, and skill/author presence.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            record: { type: "object", description: "The OASF record JSON object" }
+          },
+          required: ["record"]
+        }
+      },
+      {
+        name: "validate_governance_overlay",
+        description: "Validate a governance overlay. Checks required fields and sensitivity tier validity.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            governance: { type: "object", description: "The governance overlay JSON object" }
+          },
+          required: ["governance"]
+        }
+      },
+      {
+        name: "check_sensitivity_ceiling",
+        description: "Check that an asset's sensitivity tier does not exceed its declared dependency ceiling.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            governance: { type: "object", description: "The governance overlay JSON object" }
+          },
+          required: ["governance"]
+        }
+      },
+      {
+        name: "validate_full",
+        description: "Run all validation checks (record schema, governance overlay, sensitivity ceiling) in one call.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            record: { type: "object", description: "The OASF record JSON object" },
+            governance: { type: "object", description: "The governance overlay JSON object" }
+          },
+          required: ["record", "governance"]
+        }
+      }
+    ]
+  }));
+
+  server.setRequestHandler("tools/call", async (request) => {
+    const { name, arguments: args } = request.params;
+    try {
+      const result = await handleToolCall(name, args || {});
+      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+    } catch (error) {
+      return {
+        content: [{ type: "text", text: error?.message || String(error) }],
+        isError: true
+      };
+    }
+  });
+
+  const transport = new StdioServerTransport();
+  await server.connect(transport);
+}
+
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  await startServer();
+}

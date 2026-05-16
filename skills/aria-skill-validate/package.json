@@ -7,7 +7,7 @@
   "bin": { "aria-skill-validate": "server.mjs" },
   "scripts": {
     "start": "node server.mjs",
-    "test": "node --test tests/"
+    "test": "node ../../scripts/run-node-test-coverage.mjs tests/"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.12.0"

@@ -5,7 +5,10 @@ on:
     branches: [main]
     paths:
       - 'skills/*/oasf-record.json'
+      - 'skills/*/oasf-governance.json'
+      - 'skills/*/package.json'
       - 'skills/*/server.mjs'
+      - 'skills/*/Dockerfile'
       - 'orchestrator/oasf-record.json'
 
 permissions:
@@ -41,6 +44,18 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install skill dependencies
+        working-directory: skills/${{ matrix.skill }}
+        run: npm install
+
+      - name: Run skill tests with coverage baseline
+        working-directory: skills/${{ matrix.skill }}
+        run: npm test
 
       - name: Read OASF Record
         id: oasf
@@ -89,7 +104,7 @@ jobs:
     name: Publish orchestrator
     runs-on: ubuntu-latest
     needs: publish-skill
-    if: always()
+    if: ${{ always() && needs.publish-skill.result != 'failure' && needs.publish-skill.result != 'cancelled' }}
     steps:
       - uses: actions/checkout@v4
 
