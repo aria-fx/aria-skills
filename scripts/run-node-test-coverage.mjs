@@ -44,22 +44,21 @@ function parseCoverageTableCells(line) {
 }
 
 function normalizeCoverageHeader(cell) {
-  return cell.toLowerCase().replace(/[%\s]+/g, "");
+  return cell.toLowerCase().replace(/[^a-z]+/g, "");
 }
 
 function parseOverallCoverageSummary(text) {
   const lines = text.split(/\r?\n/);
-  const headerLine = lines.find((line) => /\|\s*%/.test(line) && /branch/i.test(line) && /func/i.test(line) && /line/i.test(line));
-  const allFilesLine = lines.find((line) => /^\s*all files\b/i.test(line));
+  const headerLine = lines.find(
+    (line) => line.includes("|") && /branch\s*%/i.test(line) && /func/i.test(line) && /line\s*%/i.test(line)
+  );
+  const allFilesLine = lines.find((line) => /\ball files\b/i.test(line) && line.includes("|"));
 
   if (!allFilesLine) {
     return null;
   }
 
   const rowCells = parseCoverageTableCells(allFilesLine);
-  if (rowCells.length < 5) {
-    return null;
-  }
 
   if (headerLine) {
     const headerCells = parseCoverageTableCells(headerLine);
@@ -68,8 +67,8 @@ function parseOverallCoverageSummary(text) {
     );
 
     const branchesIndex = headerIndexes.get("branch");
-    const functionsIndex = headerIndexes.get("funcs");
-    const linesIndex = headerIndexes.get("lines");
+    const functionsIndex = headerIndexes.get("funcs") ?? headerIndexes.get("functions");
+    const linesIndex = headerIndexes.get("line") ?? headerIndexes.get("lines");
 
     if (branchesIndex !== undefined && functionsIndex !== undefined && linesIndex !== undefined) {
       const branches = Number.parseFloat(rowCells[branchesIndex]);
@@ -94,6 +93,14 @@ function parseOverallCoverageSummary(text) {
     .slice(1)
     .map((cell) => Number.parseFloat(cell))
     .filter((value) => Number.isFinite(value));
+
+  if (percentageValues.length === 3) {
+    return {
+      lines: percentageValues[0],
+      branches: percentageValues[1],
+      functions: percentageValues[2]
+    };
+  }
 
   if (percentageValues.length < 4) {
     return null;
