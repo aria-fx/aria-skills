@@ -1,0 +1,55 @@
+name: ARIA Skills CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  repo-tests:
+    name: Repository tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install repository dependencies
+        run: npm install
+
+      - name: Run repository tests
+        run: npm test
+
+  skill-tests:
+    name: Skill tests (${{ matrix.skill }})
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        skill:
+          - aria-skill-catalog
+          - aria-skill-dependency-scan
+          - aria-skill-publish
+          - aria-skill-purview-sync
+          - aria-skill-scaffold
+          - aria-skill-validate
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install skill dependencies
+        working-directory: skills/${{ matrix.skill }}
+        run: npm install
+
+      - name: Run skill tests
+        working-directory: skills/${{ matrix.skill }}
+        run: npm test

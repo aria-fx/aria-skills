@@ -4,6 +4,7 @@
 
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { pathToFileURL } from "node:url";
 
 const SKILL_TAXONOMY = {
   "nlp": { "nlu": { "intent_classification": 10101, "entity_extraction": 10102 },
@@ -16,74 +17,7 @@ const SKILL_TAXONOMY = {
                   "compliance": { "dependency_audit": 40401, "ceiling_check": 40402 } }
 };
 
-const server = new Server(
-  { name: "aria-skill-scaffold", version: "1.0.0" },
-  { capabilities: { tools: {} } }
-);
-
-server.setRequestHandler("tools/list", async () => ({
-  tools: [
-    {
-      name: "scaffold_from_template",
-      description: "Generate a complete ARIA asset directory structure from the template, including oasf-record.json, oasf-governance.json, src/, tests/, docs/, Dockerfile, and .github/ workflows.",
-      inputSchema: {
-        type: "object",
-        properties: {
-          asset_name: { type: "string", description: "Full OASF name (e.g., myorg.com/skills/policy-lookup)" },
-          asset_type: { type: "string", enum: ["agent", "skill", "instruction", "knowledge", "orchestration"] },
-          description: { type: "string" },
-          author: { type: "string" }
-        },
-        required: ["asset_name", "asset_type"]
-      }
-    },
-    {
-      name: "generate_oasf_record",
-      description: "Generate an OASF record with pre-filled fields based on asset type and description.",
-      inputSchema: {
-        type: "object",
-        properties: {
-          asset_name: { type: "string" },
-          asset_type: { type: "string" },
-          description: { type: "string" },
-          skills: { type: "array", items: { type: "string" }, description: "Skill taxonomy paths (e.g., 'knowledge_retrieval/rag')" },
-          domains: { type: "array", items: { type: "string" } },
-          author: { type: "string" }
-        },
-        required: ["asset_name", "asset_type"]
-      }
-    },
-    {
-      name: "suggest_skill_taxonomy",
-      description: "Suggest OASF skill taxonomy entries based on a natural-language description of the asset's capabilities.",
-      inputSchema: {
-        type: "object",
-        properties: {
-          description: { type: "string", description: "Natural language description of what the asset does" }
-        },
-        required: ["description"]
-      }
-    },
-    {
-      name: "propose_governance_overlay",
-      description: "Propose a governance overlay with sensible defaults based on asset type, data classifications, and domain.",
-      inputSchema: {
-        type: "object",
-        properties: {
-          asset_type: { type: "string" },
-          handles_pii: { type: "boolean", default: false },
-          handles_phi: { type: "boolean", default: false },
-          domain: { type: "string" },
-          compliance_frameworks: { type: "array", items: { type: "string" } }
-        },
-        required: ["asset_type"]
-      }
-    }
-  ]
-}));
-
-server.setRequestHandler("tools/call", async (request) => {
-  const { name, arguments: args } = request.params;
+export async function handleToolCall(name, args = {}) {
   let result;
 
   switch (name) {
@@ -217,11 +151,96 @@ server.setRequestHandler("tools/call", async (request) => {
     }
 
     default:
-      return { content: [{ type: "text", text: `Unknown tool: ${name}` }], isError: true };
+      throw new Error(`Unknown tool: ${name}`);
   }
 
-  return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
-});
+  return result;
+}
 
-const transport = new StdioServerTransport();
-await server.connect(transport);
+async function startServer() {
+  const server = new Server(
+    { name: "aria-skill-scaffold", version: "1.0.0" },
+    { capabilities: { tools: {} } }
+  );
+
+  server.setRequestHandler("tools/list", async () => ({
+    tools: [
+      {
+        name: "scaffold_from_template",
+        description: "Generate a complete ARIA asset directory structure from the template, including oasf-record.json, oasf-governance.json, src/, tests/, docs/, Dockerfile, and .github/ workflows.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            asset_name: { type: "string", description: "Full OASF name (e.g., myorg.com/skills/policy-lookup)" },
+            asset_type: { type: "string", enum: ["agent", "skill", "instruction", "knowledge", "orchestration"] },
+            description: { type: "string" },
+            author: { type: "string" }
+          },
+          required: ["asset_name", "asset_type"]
+        }
+      },
+      {
+        name: "generate_oasf_record",
+        description: "Generate an OASF record with pre-filled fields based on asset type and description.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            asset_name: { type: "string" },
+            asset_type: { type: "string" },
+            description: { type: "string" },
+            skills: { type: "array", items: { type: "string" }, description: "Skill taxonomy paths (e.g., 'knowledge_retrieval/rag')" },
+            domains: { type: "array", items: { type: "string" } },
+            author: { type: "string" }
+          },
+          required: ["asset_name", "asset_type"]
+        }
+      },
+      {
+        name: "suggest_skill_taxonomy",
+        description: "Suggest OASF skill taxonomy entries based on a natural-language description of the asset's capabilities.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            description: { type: "string", description: "Natural language description of what the asset does" }
+          },
+          required: ["description"]
+        }
+      },
+      {
+        name: "propose_governance_overlay",
+        description: "Propose a governance overlay with sensible defaults based on asset type, data classifications, and domain.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            asset_type: { type: "string" },
+            handles_pii: { type: "boolean", default: false },
+            handles_phi: { type: "boolean", default: false },
+            domain: { type: "string" },
+            compliance_frameworks: { type: "array", items: { type: "string" } }
+          },
+          required: ["asset_type"]
+        }
+      }
+    ]
+  }));
+
+  server.setRequestHandler("tools/call", async (request) => {
+    const { name, arguments: args } = request.params;
+    try {
+      const result = await handleToolCall(name, args || {});
+      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+    } catch (error) {
+      return {
+        content: [{ type: "text", text: error?.message || String(error) }],
+        isError: true
+      };
+    }
+  });
+
+  const transport = new StdioServerTransport();
+  await server.connect(transport);
+}
+
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  await startServer();
+}
