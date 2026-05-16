@@ -31,9 +31,9 @@ Brand-aligned architecture view with orchestrator, governed skills, and speciali
 | **orchestrator** | All 6 skills | Central agent for all ARIA workflows (CI/CD, catalog, scaffolding) |
 | **compliance-auditor** | dependency-scan, purview-sync | Automated compliance assessment and audit reporting |
 | **primitive-creator** | scaffold, catalog, validate | Helps developers create new ARIA assets with proper classification |
-| **aria-super** | validate, catalog, dependency-scan, scaffold | Cross-repo architecture and review agent for framework, gateway, and skills |
-| **gateway-contract-drift-reviewer** | validate, catalog | Focused reviewer for gateway API/schema drift and compatibility risks |
-| **skill-lifecycle-reviewer** | scaffold, validate, publish, dependency-scan, purview-sync | Lifecycle governance reviewer for scaffold→validate→publish workflows |
+| **aria-super** | validate, catalog, scaffold, publish, dependency-scan, purview-sync | Cross-repo architecture and review agent for framework, gateway, and skills |
+| **gateway-contract-drift-reviewer** | validate, catalog, scaffold | Focused reviewer for gateway API/schema drift and compatibility risks |
+| **skill-lifecycle-reviewer** | scaffold, validate, publish, dependency-scan, purview-sync, catalog | Lifecycle governance reviewer for scaffold→validate→publish workflows |
 
 ## Quick Start
 

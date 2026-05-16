@@ -22,6 +22,11 @@
       "type": "mcp_server",
       "ref": "aria.dev/skills/catalog",
       "version": "1.0.0"
+    },
+    {
+      "type": "mcp_server",
+      "ref": "aria.dev/skills/scaffold",
+      "version": "1.0.0"
     }
   ],
   "locators": [

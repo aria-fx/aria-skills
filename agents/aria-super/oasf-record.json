@@ -27,12 +27,22 @@
     },
     {
       "type": "mcp_server",
+      "ref": "aria.dev/skills/scaffold",
+      "version": "1.0.0"
+    },
+    {
+      "type": "mcp_server",
+      "ref": "aria.dev/skills/publish",
+      "version": "1.0.0"
+    },
+    {
+      "type": "mcp_server",
       "ref": "aria.dev/skills/dependency-scan",
       "version": "1.0.0"
     },
     {
       "type": "mcp_server",
-      "ref": "aria.dev/skills/scaffold",
+      "ref": "aria.dev/skills/purview-sync",
       "version": "1.0.0"
     }
   ],
