@@ -10,6 +10,10 @@ on:
       - 'skills/*/server.mjs'
       - 'skills/*/Dockerfile'
       - 'orchestrator/oasf-record.json'
+      - 'orchestrator/mcp-config.json'
+      - 'agents/gateway-contract-drift-reviewer/oasf-record.json'
+      - 'agents/gateway-contract-drift-reviewer/oasf-governance.json'
+      - 'agents/gateway-contract-drift-reviewer/mcp-config.json'
 
 permissions:
   contents: read
@@ -126,6 +130,63 @@ jobs:
           IMAGE="ghcr.io/${{ github.repository_owner }}/aria-skills/orchestrator"
           TAG="${{ steps.oasf.outputs.version }}"
           cd orchestrator
+          echo "FROM scratch" > Dockerfile
+          echo "COPY oasf-record.json /oasf-record.json" >> Dockerfile
+          echo "COPY oasf-governance.json /oasf-governance.json" >> Dockerfile
+          echo "COPY mcp-config.json /mcp-config.json" >> Dockerfile
+          docker build -t "${IMAGE}:${TAG}" -t "${IMAGE}:latest" .
+          docker push "${IMAGE}:${TAG}"
+          docker push "${IMAGE}:latest"
+          echo "Published ${IMAGE}:${TAG}"
+
+  publish-gateway-contract-drift-reviewer:
+    name: Publish gateway-contract-drift-reviewer
+    runs-on: ubuntu-latest
+    needs: publish-orchestrator
+    if: ${{ always() && needs.publish-orchestrator.result != 'failure' && needs.publish-orchestrator.result != 'cancelled' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Read gateway-contract-drift-reviewer version
+        id: oasf
+        run: |
+          VERSION=$(jq -r '.version' agents/gateway-contract-drift-reviewer/oasf-record.json)
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Validate gateway-contract-drift-reviewer manifests
+        run: |
+          node -e "
+          const fs = require('fs');
+          const record = JSON.parse(fs.readFileSync('agents/gateway-contract-drift-reviewer/oasf-record.json'));
+          const gov = JSON.parse(fs.readFileSync('agents/gateway-contract-drift-reviewer/oasf-governance.json'));
+          const required = ['name','version','schema_version','skills','locators','authors','modules'];
+          const missing = required.filter(f => !record[f]);
+          if (missing.length) { console.error('Missing:', missing); process.exit(1); }
+          const g = gov.governance;
+          if (!g) { console.error('Missing governance block'); process.exit(1); }
+          const tiers = ['public','internal','confidential','highly_confidential','restricted'];
+          if (!tiers.includes(g.sensitivity_tier)) { console.error('Bad tier:', g.sensitivity_tier); process.exit(1); }
+          if (!Array.isArray(g.allowed_consumers) || !g.allowed_consumers.includes('all-employees')) {
+            console.error('Expected all-employees in allowed_consumers'); process.exit(1);
+          }
+          if (!Array.isArray(g.compliance_frameworks) || !g.compliance_frameworks.includes('SOC2')) {
+            console.error('Expected SOC2 compliance framework'); process.exit(1);
+          }
+          console.log('✓ Validation passed:', record.name, 'v'+record.version);
+          "
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Package and push gateway-contract-drift-reviewer
+        run: |
+          IMAGE="ghcr.io/aria-framework/agents/gateway-contract-drift-reviewer"
+          TAG="${{ steps.oasf.outputs.version }}"
+          cd agents/gateway-contract-drift-reviewer
           echo "FROM scratch" > Dockerfile
           echo "COPY oasf-record.json /oasf-record.json" >> Dockerfile
           echo "COPY oasf-governance.json /oasf-governance.json" >> Dockerfile

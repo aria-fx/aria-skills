@@ -48,5 +48,12 @@
         "sensitivity_tier": "internal"
       }
     }
+  },
+  "agentCompositions": {
+    "gateway-contract-drift-reviewer": {
+      "oasf_ref": "aria.dev/agents/gateway-contract-drift-reviewer@1.0.0",
+      "mcp_config": "../agents/gateway-contract-drift-reviewer/mcp-config.json",
+      "required_servers": ["aria-validate", "aria-catalog", "aria-scaffold"]
+    }
   }
 }

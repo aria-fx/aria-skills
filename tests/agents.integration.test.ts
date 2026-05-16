@@ -27,6 +27,7 @@ interface OasfGovernance {
 
 describe("Agent Integration Tests", () => {
   const agentsDir = path.resolve(__dirname, "../agents");
+  const orchestratorDir = path.resolve(__dirname, "../orchestrator");
   const agents = ["aria-super", "gateway-contract-drift-reviewer", "skill-lifecycle-reviewer"];
 
   describe("Agent Manifests", () => {
@@ -173,6 +174,85 @@ describe("Agent Integration Tests", () => {
 
       expect(governance.sensitivity_tier).toBe("internal");
       expect(governance.allowed_consumers).toContain("all-employees");
+    });
+  });
+
+  describe("Orchestrator Wiring", () => {
+    it("orchestrator wires gateway-contract-drift-reviewer tools", async () => {
+      const orchestratorConfigPath = path.join(orchestratorDir, "mcp-config.json");
+      const orchestratorConfigContent = await fs.readFile(orchestratorConfigPath, "utf-8");
+      const orchestratorConfig = JSON.parse(orchestratorConfigContent) as {
+        mcpServers: Record<string, { metadata?: { oasf_ref?: string } }>;
+        agentCompositions?: Record<
+          string,
+          {
+            mcp_config: string;
+            required_servers: string[];
+          }
+        >;
+      };
+
+      const gatewayComposition = orchestratorConfig.agentCompositions?.["gateway-contract-drift-reviewer"];
+      expect(gatewayComposition).toBeDefined();
+      expect(gatewayComposition?.required_servers).toEqual([
+        "aria-validate",
+        "aria-catalog",
+        "aria-scaffold",
+      ]);
+
+      const gatewayConfigPath = path.join(orchestratorDir, gatewayComposition!.mcp_config);
+      const gatewayConfigContent = await fs.readFile(gatewayConfigPath, "utf-8");
+      const gatewayConfig = JSON.parse(gatewayConfigContent) as {
+        mcpServers: Record<string, { metadata?: { oasf_ref?: string } }>;
+      };
+
+      const orchestratorRefs = Object.values(orchestratorConfig.mcpServers)
+        .map((srv) => srv.metadata?.oasf_ref?.split("@")[0])
+        .filter(Boolean);
+      const gatewayRefs = Object.values(gatewayConfig.mcpServers)
+        .map((srv) => srv.metadata?.oasf_ref?.split("@")[0])
+        .filter(Boolean);
+
+      gatewayRefs.forEach((ref) => {
+        expect(orchestratorRefs).toContain(ref);
+      });
+    });
+  });
+
+  describe("Gateway Contract Drift Reviewer E2E", () => {
+    it("detects contract drift when gateway runtime diverges from API spec", async () => {
+      const orchestratorConfigPath = path.join(orchestratorDir, "mcp-config.json");
+      const orchestratorContent = await fs.readFile(orchestratorConfigPath, "utf-8");
+      const orchestratorConfig = JSON.parse(orchestratorContent) as {
+        mcpServers: Record<string, { metadata?: { oasf_ref?: string } }>;
+      };
+
+      const requiredRefs = [
+        "aria.dev/skills/validate",
+        "aria.dev/skills/catalog",
+        "aria.dev/skills/scaffold",
+      ];
+      const orchestratorRefs = Object.values(orchestratorConfig.mcpServers)
+        .map((srv) => srv.metadata?.oasf_ref?.split("@")[0])
+        .filter(Boolean);
+      requiredRefs.forEach((ref) => expect(orchestratorRefs).toContain(ref));
+
+      const apiSpec = {
+        endpoints: ["GET /health", "POST /v1/routes"],
+        schemas: ["RouteRequest", "RouteResponse"],
+      };
+      const runtime = {
+        endpoints: ["GET /health", "POST /v1/routes", "DELETE /v1/routes/{id}"],
+        schemas: ["RouteRequest", "RouteResponse", "DeleteRouteResponse"],
+      };
+
+      const missingInSpec = runtime.endpoints.filter((endpoint) => !apiSpec.endpoints.includes(endpoint));
+      const missingSchemasInSpec = runtime.schemas.filter((schema) => !apiSpec.schemas.includes(schema));
+
+      const driftDetected = missingInSpec.length > 0 || missingSchemasInSpec.length > 0;
+      expect(driftDetected).toBe(true);
+      expect(missingInSpec).toContain("DELETE /v1/routes/{id}");
+      expect(missingSchemasInSpec).toContain("DeleteRouteResponse");
     });
   });
 });
