@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 
 import { spawn } from "node:child_process";
+import { readdirSync, statSync } from "node:fs";
+import path from "node:path";
 
 const COVERAGE_BASELINE = {
   lines: 65,
@@ -15,9 +17,62 @@ if (testArgs.length === 0) {
   process.exit(1);
 }
 
+const TEST_FILE_PATTERN = /\.(test|spec)\.([cm]?[jt]sx?)$/;
+
+function listTestFiles(directory) {
+  const testFiles = [];
+
+  for (const entry of readdirSync(directory, { withFileTypes: true })) {
+    const fullPath = path.join(directory, entry.name);
+
+    if (entry.isDirectory()) {
+      testFiles.push(...listTestFiles(fullPath));
+      continue;
+    }
+
+    if (entry.isFile() && TEST_FILE_PATTERN.test(entry.name)) {
+      testFiles.push(fullPath);
+    }
+  }
+
+  return testFiles.sort();
+}
+
+function normalizeTestArgs(args) {
+  const normalizedArgs = [];
+
+  for (const arg of args) {
+    if (arg.startsWith("-")) {
+      normalizedArgs.push(arg);
+      continue;
+    }
+
+    try {
+      const argStats = statSync(arg);
+      if (argStats.isDirectory()) {
+        const testFiles = listTestFiles(arg);
+        if (testFiles.length === 0) {
+          console.error(`No test files found in directory: ${arg}`);
+          process.exit(1);
+        }
+        normalizedArgs.push(...testFiles);
+        continue;
+      }
+    } catch {
+      // Keep non-filesystem arguments intact so Node can resolve explicit files/patterns.
+    }
+
+    normalizedArgs.push(arg);
+  }
+
+  return normalizedArgs;
+}
+
+const normalizedTestArgs = normalizeTestArgs(testArgs);
+
 const child = spawn(
   process.execPath,
-  ["--test", "--experimental-test-coverage", "--test-reporter=spec", ...testArgs],
+  ["--test", "--experimental-test-coverage", "--test-reporter=spec", ...normalizedTestArgs],
   { stdio: ["inherit", "pipe", "pipe"] }
 );
 
