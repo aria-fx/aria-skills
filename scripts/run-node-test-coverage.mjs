@@ -36,22 +36,86 @@ for (const stream of [child.stdout, child.stderr]) {
   });
 }
 
+function parseCoverageTableCells(line) {
+  return line
+    .split("|")
+    .map((cell) => cell.trim())
+    .filter((cell) => cell.length > 0);
+}
+
+function normalizeCoverageHeader(cell) {
+  return cell.toLowerCase().replace(/[%\s]+/g, "");
+}
+
+function parseOverallCoverageSummary(text) {
+  const lines = text.split(/\r?\n/);
+  const headerLine = lines.find((line) => /\|\s*%/.test(line) && /branch/i.test(line) && /func/i.test(line) && /line/i.test(line));
+  const allFilesLine = lines.find((line) => /^\s*all files\b/i.test(line));
+
+  if (!allFilesLine) {
+    return null;
+  }
+
+  const rowCells = parseCoverageTableCells(allFilesLine);
+  if (rowCells.length < 5) {
+    return null;
+  }
+
+  if (headerLine) {
+    const headerCells = parseCoverageTableCells(headerLine);
+    const headerIndexes = new Map(
+      headerCells.map((cell, index) => [normalizeCoverageHeader(cell), index])
+    );
+
+    const branchesIndex = headerIndexes.get("branch");
+    const functionsIndex = headerIndexes.get("funcs");
+    const linesIndex = headerIndexes.get("lines");
+
+    if (branchesIndex !== undefined && functionsIndex !== undefined && linesIndex !== undefined) {
+      const branches = Number.parseFloat(rowCells[branchesIndex]);
+      const functions = Number.parseFloat(rowCells[functionsIndex]);
+      const coveredLines = Number.parseFloat(rowCells[linesIndex]);
+
+      if (
+        Number.isFinite(branches) &&
+        Number.isFinite(functions) &&
+        Number.isFinite(coveredLines)
+      ) {
+        return {
+          lines: coveredLines,
+          branches,
+          functions
+        };
+      }
+    }
+  }
+
+  const percentageValues = rowCells
+    .slice(1)
+    .map((cell) => Number.parseFloat(cell))
+    .filter((value) => Number.isFinite(value));
+
+  if (percentageValues.length < 4) {
+    return null;
+  }
+
+  return {
+    lines: percentageValues[3],
+    branches: percentageValues[1],
+    functions: percentageValues[2]
+  };
+}
+
 child.on("close", (code) => {
   if (code !== 0) {
     process.exit(code ?? 1);
   }
 
-  const match = output.match(/all fil.*?\|\s*([0-9.]+)\s*\|\s*([0-9.]+)\s*\|\s*([0-9.]+)\s*\|/i);
-  if (!match) {
+  const coverage = parseOverallCoverageSummary(output);
+  if (!coverage) {
     console.error("Coverage baseline check failed: could not parse overall coverage summary.");
     process.exit(1);
   }
-
-  const coverage = {
-    lines: Number.parseFloat(match[1]),
-    branches: Number.parseFloat(match[2]),
-    functions: Number.parseFloat(match[3])
-  };
 
   const failures = Object.entries(COVERAGE_BASELINE)
     .filter(([key, minimum]) => coverage[key] < minimum)
