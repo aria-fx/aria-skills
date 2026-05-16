@@ -4,7 +4,7 @@
     "data_classifications": [],
     "purview_label_id": "",
     "approval_chain": ["ai-platform-engineering", "api-governance"],
-    "allowed_consumers": [],
+    "allowed_consumers": ["all-employees"],
     "max_data_retention_days": 365,
     "audit_level": "standard",
     "dependency_sensitivity_ceiling": "internal",

@@ -16,6 +16,22 @@
         "installed_via": "apm install ghcr.io/aria-fx/aria-skills/catalog:1.0.0"
       }
     },
+    "aria-scaffold": {
+      "command": "node",
+      "args": ["../../skills/aria-skill-scaffold/server.mjs"],
+      "metadata": {
+        "oasf_ref": "aria.dev/skills/scaffold@1.0.0",
+        "installed_via": "apm install ghcr.io/aria-fx/aria-skills/scaffold:1.0.0"
+      }
+    },
+    "aria-publish": {
+      "command": "node",
+      "args": ["../../skills/aria-skill-publish/server.mjs"],
+      "metadata": {
+        "oasf_ref": "aria.dev/skills/publish@1.0.0",
+        "installed_via": "apm install ghcr.io/aria-fx/aria-skills/publish:1.0.0"
+      }
+    },
     "aria-dependency-scan": {
       "command": "node",
       "args": ["../../skills/aria-skill-dependency-scan/server.mjs"],
@@ -24,12 +40,12 @@
         "installed_via": "apm install ghcr.io/aria-fx/aria-skills/dependency-scan:1.0.0"
       }
     },
-    "aria-scaffold": {
+    "aria-purview-sync": {
       "command": "node",
-      "args": ["../../skills/aria-skill-scaffold/server.mjs"],
+      "args": ["../../skills/aria-skill-purview-sync/server.mjs"],
       "metadata": {
-        "oasf_ref": "aria.dev/skills/scaffold@1.0.0",
-        "installed_via": "apm install ghcr.io/aria-fx/aria-skills/scaffold:1.0.0"
+        "oasf_ref": "aria.dev/skills/purview-sync@1.0.0",
+        "installed_via": "apm install ghcr.io/aria-fx/aria-skills/purview-sync:1.0.0"
       }
     }
   }

@@ -14,6 +14,10 @@ interface OasfRecord {
   modules: Array<{ type: string; ref?: string; version?: string }>;
 }
 
+interface OasfGovernanceFile {
+  governance: OasfGovernance;
+}
+
 interface OasfGovernance {
   sensitivity_tier: string;
   approval_chain: string[];
@@ -52,7 +56,7 @@ describe("Agent Integration Tests", () => {
     it.each(agents)("%s agent has valid OASF governance overlay", async (agentName) => {
       const governancePath = path.join(agentsDir, agentName, "oasf-governance.json");
       const content = await fs.readFile(governancePath, "utf-8");
-      const governance: OasfGovernance = JSON.parse(content);
+      const { governance } = JSON.parse(content) as OasfGovernanceFile;
 
       expect(["public", "internal", "confidential", "highly_confidential"]).toContain(
         governance.sensitivity_tier
@@ -151,7 +155,7 @@ describe("Agent Integration Tests", () => {
 
       const governancePath = path.join(agentsDir, agentName, "oasf-governance.json");
       const govContent = await fs.readFile(governancePath, "utf-8");
-      const governance: OasfGovernance = JSON.parse(govContent);
+      const { governance } = JSON.parse(govContent) as OasfGovernanceFile;
 
       // Verify name and governance alignment
       expect(record.name).toMatch(/^aria\.dev\/agents\//);
@@ -165,7 +169,7 @@ describe("Agent Integration Tests", () => {
     it("aria-super is internal and allows all-employees", async () => {
       const governancePath = path.join(agentsDir, "aria-super", "oasf-governance.json");
       const content = await fs.readFile(governancePath, "utf-8");
-      const governance: OasfGovernance = JSON.parse(content);
+      const { governance } = JSON.parse(content) as OasfGovernanceFile;
 
       expect(governance.sensitivity_tier).toBe("internal");
       expect(governance.allowed_consumers).toContain("all-employees");

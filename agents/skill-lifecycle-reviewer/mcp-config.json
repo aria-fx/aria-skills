@@ -39,6 +39,14 @@
         "oasf_ref": "aria.dev/skills/purview-sync@1.0.0",
         "installed_via": "apm install ghcr.io/aria-fx/aria-skills/purview-sync:1.0.0"
       }
+    },
+    "aria-catalog": {
+      "command": "node",
+      "args": ["../../skills/aria-skill-catalog/server.mjs"],
+      "metadata": {
+        "oasf_ref": "aria.dev/skills/catalog@1.0.0",
+        "installed_via": "apm install ghcr.io/aria-fx/aria-skills/catalog:1.0.0"
+      }
     }
   }
 }
