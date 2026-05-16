@@ -21,6 +21,11 @@ const child = spawn(
   { stdio: ["inherit", "pipe", "pipe"] }
 );
 
+child.on("error", (error) => {
+  console.error(`Failed to start Node test coverage run: ${error.message}`);
+  process.exit(1);
+});
+
 let output = "";
 
 for (const stream of [child.stdout, child.stderr]) {
