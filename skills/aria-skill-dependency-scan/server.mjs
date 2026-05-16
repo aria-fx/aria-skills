@@ -102,6 +102,11 @@ function readJsonFile(filePath) {
   return parsed && typeof parsed === "object" ? parsed : null;
 }
 
+function isWithinPath(rootPath, candidatePath) {
+  const relative = path.relative(rootPath, candidatePath);
+  return relative === "" || (!relative.startsWith("..") && !path.isAbsolute(relative));
+}
+
 function resolveFromManifestMap(ref, manifestMap = {}) {
   if (!manifestMap || typeof manifestMap !== "object") {
     return null;
@@ -149,17 +154,27 @@ function resolveFromLocalFs(ref, registryBase) {
     return null;
   }
 
-  const candidateDir = path.isAbsolute(ref) ? ref : path.join(registryBase, ref);
+  const normalizedRegistryBase = path.resolve(registryBase);
+  const resolvedRefPath = path.resolve(normalizedRegistryBase, ref);
+  if (!isWithinPath(normalizedRegistryBase, resolvedRefPath)) {
+    return null;
+  }
+
+  const candidateDir = ref.endsWith(".json") ? path.dirname(resolvedRefPath) : resolvedRefPath;
   const candidateRecordFile = ref.endsWith(".json")
-    ? (path.isAbsolute(ref) ? ref : path.join(registryBase, ref))
+    ? resolvedRefPath
     : path.join(candidateDir, "oasf-record.json");
+  const governanceFile = path.join(candidateDir, "oasf-governance.json");
+
+  if (!isWithinPath(normalizedRegistryBase, candidateRecordFile) || !isWithinPath(normalizedRegistryBase, governanceFile)) {
+    return null;
+  }
 
   const record = readJsonFile(candidateRecordFile);
   if (!record) {
     return null;
   }
 
-  const governanceFile = path.join(path.dirname(candidateRecordFile), "oasf-governance.json");
   const governance = readJsonFile(governanceFile);
   if (!governance) {
     return null;

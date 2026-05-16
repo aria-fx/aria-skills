@@ -1,5 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
 
 import { handleToolCall } from "../server.mjs";
 
@@ -134,4 +137,60 @@ test("generate_compliance_report is deterministic for same input", async () => {
   assert.equal(reportA.report.overall, "NON_COMPLIANT");
   assert.equal(reportA.report.dependency_health.violation_count, 2);
   assert.ok(reportA.report.recommendations.length > 0);
+});
+
+test("scan_transitive_deps rejects local refs outside registry_base", async () => {
+  const registryBase = mkdtempSync(path.join(tmpdir(), "dep-scan-registry-"));
+  const outsideBase = mkdtempSync(path.join(tmpdir(), "dep-scan-outside-"));
+
+  try {
+    const insideDir = path.join(registryBase, "dep", "inside");
+    mkdirSync(insideDir, { recursive: true });
+    writeFileSync(path.join(insideDir, "oasf-record.json"), JSON.stringify({
+      name: "aria.dev/skills/inside",
+      version: "1.0.0",
+      modules: []
+    }));
+    writeFileSync(path.join(insideDir, "oasf-governance.json"), JSON.stringify({
+      governance: {
+        sensitivity_tier: "internal",
+        dependency_sensitivity_ceiling: "internal"
+      }
+    }));
+
+    const outsideDir = path.join(outsideBase, "dep", "outside");
+    mkdirSync(outsideDir, { recursive: true });
+    writeFileSync(path.join(outsideDir, "oasf-record.json"), JSON.stringify({
+      name: "aria.dev/skills/outside",
+      version: "1.0.0",
+      modules: []
+    }));
+    writeFileSync(path.join(outsideDir, "oasf-governance.json"), JSON.stringify({
+      governance: {
+        sensitivity_tier: "internal",
+        dependency_sensitivity_ceiling: "internal"
+      }
+    }));
+
+    const result = await handleToolCall("scan_transitive_deps", {
+      record: {
+        name: "aria.dev/agents/root-agent",
+        modules: [
+          { type: "mcp_server", ref: "dep/inside" },
+          { type: "mcp_server", ref: "../dep/outside" },
+          { type: "mcp_server", ref: path.join(outsideDir, "oasf-record.json") }
+        ]
+      },
+      governance: rootGovernance,
+      registry_base: registryBase
+    });
+
+    assert.equal(result.total_dependencies, 1);
+    assert.deepEqual(result.dependencies.map((d) => d.ref), ["aria.dev/skills/inside"]);
+    assert.equal(result.unresolved.length, 2);
+    assert.deepEqual(result.unresolved.map((u) => u.ref).sort(), ["../dep/outside", path.join(outsideDir, "oasf-record.json")].sort());
+  } finally {
+    rmSync(registryBase, { recursive: true, force: true });
+    rmSync(outsideBase, { recursive: true, force: true });
+  }
 });
