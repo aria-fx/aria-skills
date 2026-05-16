@@ -5,7 +5,7 @@ import { handleToolCall } from "../server.mjs";
 
 function createFetchMock(sequence) {
   let index = 0;
-  return async (url, options) => {
+  const fetchMock = async (url, options) => {
     const current = sequence[index++];
     assert.ok(current, `Unexpected fetch call for URL: ${url}`);
     if (current.assert) {
@@ -29,6 +29,12 @@ function createFetchMock(sequence) {
       }
     };
   };
+
+  fetchMock.assertDone = () => {
+    assert.equal(index, sequence.length, `Expected ${sequence.length} fetch call(s), got ${index}`);
+  };
+
+  return fetchMock;
 }
 
 test("create_data_map_entity performs real Atlas entity write and returns guid", async () => {
@@ -73,6 +79,7 @@ test("create_data_map_entity performs real Atlas entity write and returns guid",
   assert.equal(result.success, true);
   assert.equal(result.entity_guid, "guid-entity-001");
   assert.equal(result.status, "created_or_updated");
+  fetchMock.assertDone();
 });
 
 test("apply_sensitivity_label resolves entity and applies classification", async () => {
@@ -114,6 +121,7 @@ test("apply_sensitivity_label resolves entity and applies classification", async
   assert.equal(result.success, true);
   assert.equal(result.entity_guid, "guid-entity-002");
   assert.equal(result.purview_label_id, "aria_confidential");
+  fetchMock.assertDone();
 });
 
 test("create_lineage_edge resolves source+target and creates relationship", async () => {
@@ -153,6 +161,7 @@ test("create_lineage_edge resolves source+target and creates relationship", asyn
   assert.equal(result.relationship_guid, "rel-001");
   assert.equal(result.source_guid, "guid-source");
   assert.equal(result.target_guid, "guid-target");
+  fetchMock.assertDone();
 });
 
 test("create_lineage_edge maps API failure with status and code", async () => {
@@ -182,6 +191,7 @@ test("create_lineage_edge maps API failure with status and code", async () => {
       ),
     /Purview API find_entity failed: Target not found/
   );
+  fetchMock.assertDone();
 });
 
 test("create_data_map_entity retries retryable Purview errors and succeeds", async () => {
@@ -230,6 +240,7 @@ test("create_data_map_entity retries retryable Purview errors and succeeds", asy
 
   assert.equal(result.success, true);
   assert.equal(result.entity_guid, "guid-entity-retry");
+  fetchMock.assertDone();
 });
 
 test("sandbox_mode rejects non-sandbox accounts unless explicit override is set", async () => {
