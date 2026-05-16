@@ -5,7 +5,8 @@
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { DefaultAzureCredential } from "@azure/identity";
-import { pathToFileURL } from "node:url";
+import { pathToFileURL, fileURLToPath } from "node:url";
+import { resolve } from "node:path";
 
 const PURVIEW_SCOPE = "https://purview.azure.net/.default";
 const RETRYABLE_STATUS_CODES = new Set([408, 409, 429, 500, 502, 503, 504]);
@@ -42,11 +43,25 @@ function buildPurviewEndpoint(input) {
     throw new ToolInputError("purview_account is required.");
   }
 
-  if (/^https?:\/\//i.test(input)) {
-    return input.replace(/\/$/, "");
+  const trimmed = input.trim();
+
+  if (/^https?:\/\//i.test(trimmed)) {
+    // Parse as URL to extract origin and enforce https
+    let parsed;
+    try {
+      parsed = new URL(trimmed);
+    } catch (err) {
+      throw new ToolInputError(`Invalid URL in purview_account: ${trimmed}`);
+    }
+
+    if (parsed.protocol !== "https:") {
+      throw new ToolInputError("purview_account URL must use https protocol.");
+    }
+
+    return parsed.origin;
   }
 
-  const host = splitHost(input);
+  const host = splitHost(trimmed);
   if (host.includes(".")) {
     return `https://${host}`;
   }
@@ -617,6 +632,6 @@ async function startServer() {
   await server.connect(transport);
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1])) {
   await startServer();
 }

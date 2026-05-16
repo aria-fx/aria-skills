@@ -269,3 +269,68 @@ test("sandbox_mode rejects non-sandbox accounts unless explicit override is set"
     /sandbox_mode is enabled/
   );
 });
+
+test("buildPurviewEndpoint strips path/query from full URL and enforces https", async () => {
+  const fetchMock = createFetchMock([
+    {
+      assert: (url, options) => {
+        // Verify the endpoint is the origin only, not including /foo/bar
+        assert.equal(url, "https://acct.purview.azure.com/catalog/api/atlas/v2/entity");
+        assert.equal(options.method, "POST");
+      },
+      body: {
+        guidAssignments: {
+          "aria.dev/skills/test": "guid-test-001"
+        }
+      }
+    }
+  ]);
+
+  const result = await handleToolCall(
+    "create_data_map_entity",
+    {
+      purview_account: "https://acct.purview.azure.com/foo/bar?query=param",
+      auth: { access_token: "token" },
+      record: {
+        name: "aria.dev/skills/test",
+        version: "1.0.0",
+        modules: [{ type: "mcp_server" }]
+      },
+      governance: {
+        governance: {
+          sensitivity_tier: "public"
+        }
+      }
+    },
+    { fetchImpl: fetchMock }
+  );
+
+  assert.equal(result.success, true);
+  fetchMock.assertDone();
+});
+
+test("buildPurviewEndpoint rejects http URLs", async () => {
+  await assert.rejects(
+    () =>
+      handleToolCall(
+        "create_data_map_entity",
+        {
+          purview_account: "http://acct.purview.azure.com",
+          auth: { access_token: "token" },
+          record: {
+            name: "aria.dev/skills/test",
+            version: "1.0.0",
+            modules: [{ type: "mcp_server" }]
+          },
+          governance: {
+            governance: {
+              sensitivity_tier: "public"
+            }
+          }
+        },
+        { fetchImpl: createFetchMock([]) }
+      ),
+    /must use https protocol/
+  );
+});
+
