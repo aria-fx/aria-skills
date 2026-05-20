@@ -27,6 +27,7 @@ interface OasfGovernance {
 
 describe("Agent Integration Tests", () => {
   const agentsDir = path.resolve(__dirname, "../agents");
+  const orchestratorDir = path.resolve(__dirname, "../orchestrator");
   const agents = ["aria-super", "gateway-contract-drift-reviewer", "skill-lifecycle-reviewer"];
 
   describe("Agent Manifests", () => {
@@ -173,6 +174,97 @@ describe("Agent Integration Tests", () => {
 
       expect(governance.sensitivity_tier).toBe("internal");
       expect(governance.allowed_consumers).toContain("all-employees");
+    });
+  });
+
+  describe("Orchestrator Wiring", () => {
+    it("orchestrator wires gateway-contract-drift-reviewer tools", async () => {
+      const orchestratorConfigPath = path.join(orchestratorDir, "mcp-config.json");
+      const orchestratorConfigContent = await fs.readFile(orchestratorConfigPath, "utf-8");
+      const orchestratorConfig = JSON.parse(orchestratorConfigContent) as {
+        mcpServers: Record<string, { metadata?: { oasf_ref?: string } }>;
+        agentCompositions?: Record<
+          string,
+          {
+            mcp_config: string;
+            required_servers: string[];
+          }
+        >;
+      };
+
+      const gatewayComposition = orchestratorConfig.agentCompositions?.["gateway-contract-drift-reviewer"];
+      expect(gatewayComposition).toBeDefined();
+      expect(gatewayComposition?.required_servers).toEqual([
+        "aria-validate",
+        "aria-catalog",
+        "aria-scaffold",
+      ]);
+
+      const gatewayConfigPath = path.join(orchestratorDir, gatewayComposition!.mcp_config);
+      const gatewayConfigContent = await fs.readFile(gatewayConfigPath, "utf-8");
+      const gatewayConfig = JSON.parse(gatewayConfigContent) as {
+        mcpServers: Record<string, { metadata?: { oasf_ref?: string } }>;
+      };
+
+      gatewayComposition?.required_servers.forEach((serverName) => {
+        expect(orchestratorConfig.mcpServers[serverName]).toBeDefined();
+        expect(gatewayConfig.mcpServers[serverName]).toBeDefined();
+      });
+
+      const orchestratorRefs = Object.values(orchestratorConfig.mcpServers)
+        .map((srv) => srv.metadata?.oasf_ref?.split("@")[0])
+        .filter(Boolean);
+      const gatewayRefs = Object.values(gatewayConfig.mcpServers)
+        .map((srv) => srv.metadata?.oasf_ref?.split("@")[0])
+        .filter(Boolean);
+
+      gatewayRefs.forEach((ref) => {
+        expect(orchestratorRefs).toContain(ref);
+      });
+    });
+  });
+
+  describe("Gateway Contract Drift Reviewer E2E", () => {
+    it("keeps gateway contract reviewer manifest and MCP wiring aligned", async () => {
+      const [recordContent, orchestratorContent, gatewayConfigContent] = await Promise.all([
+        fs.readFile(path.join(agentsDir, "gateway-contract-drift-reviewer", "oasf-record.json"), "utf-8"),
+        fs.readFile(path.join(orchestratorDir, "mcp-config.json"), "utf-8"),
+        fs.readFile(path.join(agentsDir, "gateway-contract-drift-reviewer", "mcp-config.json"), "utf-8"),
+      ]);
+
+      const record = JSON.parse(recordContent) as OasfRecord;
+      const orchestratorConfig = JSON.parse(orchestratorContent) as {
+        mcpServers: Record<string, { metadata?: { oasf_ref?: string } }>;
+        agentCompositions?: Record<
+          string,
+          {
+            mcp_config: string;
+            required_servers: string[];
+          }
+        >;
+      };
+      const gatewayConfig = JSON.parse(gatewayConfigContent) as {
+        mcpServers: Record<string, { metadata?: { oasf_ref?: string } }>;
+      };
+
+      const gatewayComposition = orchestratorConfig.agentCompositions?.["gateway-contract-drift-reviewer"];
+      expect(gatewayComposition).toBeDefined();
+
+      const declaredRefs = record.modules
+        .filter((module) => module.type === "mcp_server")
+        .map((module) => module.ref)
+        .sort();
+
+      const gatewayRefs = Object.values(gatewayConfig.mcpServers)
+        .map((srv) => srv.metadata?.oasf_ref?.split("@")[0])
+        .filter(Boolean)
+        .sort();
+
+      expect(gatewayRefs).toEqual(declaredRefs);
+      gatewayComposition?.required_servers.forEach((serverName) => {
+        expect(orchestratorConfig.mcpServers[serverName]).toBeDefined();
+        expect(gatewayConfig.mcpServers[serverName]).toBeDefined();
+      });
     });
   });
 });
