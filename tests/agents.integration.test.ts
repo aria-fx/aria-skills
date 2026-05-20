@@ -206,6 +206,11 @@ describe("Agent Integration Tests", () => {
         mcpServers: Record<string, { metadata?: { oasf_ref?: string } }>;
       };
 
+      gatewayComposition?.required_servers.forEach((serverName) => {
+        expect(orchestratorConfig.mcpServers[serverName]).toBeDefined();
+        expect(gatewayConfig.mcpServers[serverName]).toBeDefined();
+      });
+
       const orchestratorRefs = Object.values(orchestratorConfig.mcpServers)
         .map((srv) => srv.metadata?.oasf_ref?.split("@")[0])
         .filter(Boolean);
