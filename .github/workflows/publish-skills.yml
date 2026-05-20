@@ -184,7 +184,7 @@ jobs:
 
       - name: Package and push gateway-contract-drift-reviewer
         run: |
-          IMAGE="ghcr.io/aria-framework/agents/gateway-contract-drift-reviewer"
+          IMAGE="ghcr.io/${{ github.repository_owner }}/agents/gateway-contract-drift-reviewer"
           TAG="${{ steps.oasf.outputs.version }}"
           cd agents/gateway-contract-drift-reviewer
           echo "FROM scratch" > Dockerfile
