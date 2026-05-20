@@ -225,39 +225,46 @@ describe("Agent Integration Tests", () => {
   });
 
   describe("Gateway Contract Drift Reviewer E2E", () => {
-    it("detects contract drift when gateway runtime diverges from API spec", async () => {
-      const orchestratorConfigPath = path.join(orchestratorDir, "mcp-config.json");
-      const orchestratorContent = await fs.readFile(orchestratorConfigPath, "utf-8");
+    it("keeps gateway contract reviewer manifest and MCP wiring aligned", async () => {
+      const [recordContent, orchestratorContent, gatewayConfigContent] = await Promise.all([
+        fs.readFile(path.join(agentsDir, "gateway-contract-drift-reviewer", "oasf-record.json"), "utf-8"),
+        fs.readFile(path.join(orchestratorDir, "mcp-config.json"), "utf-8"),
+        fs.readFile(path.join(agentsDir, "gateway-contract-drift-reviewer", "mcp-config.json"), "utf-8"),
+      ]);
+
+      const record = JSON.parse(recordContent) as OasfRecord;
       const orchestratorConfig = JSON.parse(orchestratorContent) as {
+        mcpServers: Record<string, { metadata?: { oasf_ref?: string } }>;
+        agentCompositions?: Record<
+          string,
+          {
+            mcp_config: string;
+            required_servers: string[];
+          }
+        >;
+      };
+      const gatewayConfig = JSON.parse(gatewayConfigContent) as {
         mcpServers: Record<string, { metadata?: { oasf_ref?: string } }>;
       };
 
-      const requiredRefs = [
-        "aria.dev/skills/validate",
-        "aria.dev/skills/catalog",
-        "aria.dev/skills/scaffold",
-      ];
-      const orchestratorRefs = Object.values(orchestratorConfig.mcpServers)
+      const gatewayComposition = orchestratorConfig.agentCompositions?.["gateway-contract-drift-reviewer"];
+      expect(gatewayComposition).toBeDefined();
+
+      const declaredRefs = record.modules
+        .filter((module) => module.type === "mcp_server")
+        .map((module) => module.ref)
+        .sort();
+
+      const gatewayRefs = Object.values(gatewayConfig.mcpServers)
         .map((srv) => srv.metadata?.oasf_ref?.split("@")[0])
-        .filter(Boolean);
-      requiredRefs.forEach((ref) => expect(orchestratorRefs).toContain(ref));
+        .filter(Boolean)
+        .sort();
 
-      const apiSpec = {
-        endpoints: ["GET /health", "POST /v1/routes"],
-        schemas: ["RouteRequest", "RouteResponse"],
-      };
-      const runtime = {
-        endpoints: ["GET /health", "POST /v1/routes", "DELETE /v1/routes/{id}"],
-        schemas: ["RouteRequest", "RouteResponse", "DeleteRouteResponse"],
-      };
-
-      const missingInSpec = runtime.endpoints.filter((endpoint) => !apiSpec.endpoints.includes(endpoint));
-      const missingSchemasInSpec = runtime.schemas.filter((schema) => !apiSpec.schemas.includes(schema));
-
-      const driftDetected = missingInSpec.length > 0 || missingSchemasInSpec.length > 0;
-      expect(driftDetected).toBe(true);
-      expect(missingInSpec).toContain("DELETE /v1/routes/{id}");
-      expect(missingSchemasInSpec).toContain("DeleteRouteResponse");
+      expect(gatewayRefs).toEqual(declaredRefs);
+      gatewayComposition?.required_servers.forEach((serverName) => {
+        expect(orchestratorConfig.mcpServers[serverName]).toBeDefined();
+        expect(gatewayConfig.mcpServers[serverName]).toBeDefined();
+      });
     });
   });
 });
