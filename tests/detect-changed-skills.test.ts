@@ -5,6 +5,8 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 
 const scriptPath = path.resolve(process.cwd(), ".github/scripts/detect-changed-skills.sh");
+const lintSectionsScriptPath = path.resolve(process.cwd(), ".github/scripts/lint-skill-markdown-sections.sh");
+const warnEvalsScriptPath = path.resolve(process.cwd(), ".github/scripts/warn-missing-evals.sh");
 const tempRepos: string[] = [];
 
 function run(command: string, cwd: string): string {
@@ -76,5 +78,44 @@ describe("detect-changed-skills.sh", () => {
 
     const githubOutput = readFileSync(outputFile, "utf8").trim();
     expect(githubOutput).toBe('matrix=["aria-skill-alpha","aria-skill-beta"]');
+  });
+});
+
+describe("skill lint scripts", () => {
+  it("fails when required SKILL.md sections are missing", () => {
+    const repoDir = mkdtempSync(path.join(tmpdir(), "skill-sections-"));
+    tempRepos.push(repoDir);
+
+    mkdirSync(path.join(repoDir, "skills", "aria-skill-alpha"), { recursive: true });
+    writeFileSync(path.join(repoDir, "skills", "aria-skill-alpha", "SKILL.md"), "## Description\n");
+
+    try {
+      execFileSync("bash", [lintSectionsScriptPath], {
+        cwd: repoDir,
+        env: { ...process.env, CHANGED_SKILLS: '["aria-skill-alpha"]' },
+        encoding: "utf8"
+      });
+    } catch (error) {
+      const typedError = error as { stdout?: string; stderr?: string };
+      const combinedOutput = `${typedError.stdout || ""}${typedError.stderr || ""}`;
+      expect(combinedOutput).toContain("SKILL.md missing required section");
+      return;
+    }
+
+    expect.fail("Expected lint script to fail for missing required SKILL.md sections");
+  });
+
+  it("emits warning annotation when evals yaml is missing", () => {
+    const repoDir = mkdtempSync(path.join(tmpdir(), "skill-evals-"));
+    tempRepos.push(repoDir);
+
+    mkdirSync(path.join(repoDir, "skills", "aria-skill-alpha"), { recursive: true });
+    const output = execFileSync("bash", [warnEvalsScriptPath], {
+      cwd: repoDir,
+      env: { ...process.env, CHANGED_SKILLS: '["aria-skill-alpha"]' },
+      encoding: "utf8"
+    });
+
+    expect(output).toContain("::warning::[aria-skill-alpha] Missing evals/*.yaml (warning only)");
   });
 });
