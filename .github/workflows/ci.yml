@@ -10,6 +10,124 @@ permissions:
   contents: read
 
 jobs:
+  skill-lint-oasf-validation:
+    name: Skill lint & OASF validation gate
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Detect changed skill directories
+        id: changes
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          CHANGED=$(git diff --name-only "$BASE_SHA" "$HEAD_SHA" | awk -F/ '/^skills\/[^/]+\// { print $2 }' | sort -u | jq -R -s -c 'split("\n") | map(select(. != ""))')
+          echo "skills=$CHANGED" >> "$GITHUB_OUTPUT"
+          echo "Changed skills: $CHANGED"
+
+      - name: Install validation dependencies
+        if: steps.changes.outputs.skills != '[]'
+        run: npm install --no-save ajv@8 ajv-formats@3
+
+      - name: Validate changed skills
+        if: steps.changes.outputs.skills != '[]'
+        env:
+          CHANGED_SKILLS: ${{ steps.changes.outputs.skills }}
+        run: |
+          node <<'NODE'
+          const fs = require("node:fs");
+          const path = require("node:path");
+          const Ajv = require("ajv");
+          const addFormats = require("ajv-formats");
+
+          const changedSkills = JSON.parse(process.env.CHANGED_SKILLS || "[]");
+          const schemaPath = path.join(process.cwd(), "schemas", "oasf-skill.schema.json");
+          const schema = JSON.parse(fs.readFileSync(schemaPath, "utf8"));
+
+          const ajv = new Ajv({ allErrors: true, strict: false });
+          addFormats(ajv);
+          const validate = ajv.compile(schema);
+
+          const requiredSections = [
+            "## Description",
+            "## Triggers",
+            "## Usage"
+          ];
+
+          const failures = [];
+          const warnings = [];
+
+          for (const skillName of changedSkills) {
+            const skillDir = path.join(process.cwd(), "skills", skillName);
+
+            const skillMdPath = path.join(skillDir, "SKILL.md");
+            if (!fs.existsSync(skillMdPath)) {
+              failures.push(`[${skillName}] Missing SKILL.md`);
+            } else {
+              const skillMd = fs.readFileSync(skillMdPath, "utf8");
+              const headings = skillMd
+                .split(/\r?\n/)
+                .map((line) => line.trim());
+              for (const section of requiredSections) {
+                if (!headings.includes(section)) {
+                  failures.push(`[${skillName}] SKILL.md missing required section: ${section}`);
+                }
+              }
+            }
+
+            const manifestPath = path.join(skillDir, "oasf-manifest.json");
+            if (!fs.existsSync(manifestPath)) {
+              failures.push(`[${skillName}] Missing oasf-manifest.json`);
+            } else {
+              try {
+                const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
+                const valid = validate(manifest);
+                if (!valid) {
+                  const schemaErrors = (validate.errors || [])
+                    .map((error) => `${error.instancePath || "/"} ${error.message}`)
+                    .join("; ");
+                  failures.push(`[${skillName}] oasf-manifest.json failed schema validation: ${schemaErrors}`);
+                }
+              } catch (error) {
+                failures.push(`[${skillName}] Invalid oasf-manifest.json: ${error.message}`);
+              }
+            }
+
+            const evalsDir = path.join(skillDir, "evals");
+            const hasEvalYaml = fs.existsSync(evalsDir)
+              && fs.readdirSync(evalsDir).some((file) => file.endsWith(".yaml") || file.endsWith(".yml"));
+            if (!hasEvalYaml) {
+              warnings.push(`[${skillName}] Missing evals/*.yaml (warning only)`);
+            }
+          }
+
+          for (const warning of warnings) {
+            console.log(`::warning::${warning}`);
+          }
+
+          if (failures.length > 0) {
+            console.error("Skill lint and OASF validation failed:");
+            for (const failure of failures) {
+              console.error(`- ${failure}`);
+            }
+            process.exit(1);
+          }
+
+          console.log(`Validated ${changedSkills.length} changed skill folder(s) successfully.`);
+          NODE
+
+      - name: No changed skills to validate
+        if: steps.changes.outputs.skills == '[]'
+        run: echo "No changed skills detected in PR diff."
+
   repo-tests:
     name: Repository tests
     runs-on: ubuntu-latest
@@ -29,6 +147,8 @@ jobs:
   skill-tests:
     name: Skill tests (${{ matrix.skill }})
     runs-on: ubuntu-latest
+    needs: [skill-lint-oasf-validation]
+    if: ${{ github.event_name != 'pull_request' || needs.skill-lint-oasf-validation.result == 'success' }}
     strategy:
       matrix:
         skill:

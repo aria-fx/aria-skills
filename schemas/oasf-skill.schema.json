@@ -1,0 +1,34 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "OASF Skill Manifest",
+  "type": "object",
+  "required": [
+    "name",
+    "version",
+    "description"
+  ],
+  "properties": {
+    "name": {
+      "type": "string",
+      "minLength": 1
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+(?:[-+].+)?$"
+    },
+    "description": {
+      "type": "string",
+      "minLength": 1
+    },
+    "triggers": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "usage": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": true
+}
