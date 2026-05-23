@@ -8,12 +8,16 @@ on:
 
 permissions:
   contents: read
+  pull-requests: write
 
 jobs:
   skill-lint-oasf-validation:
     name: Skill lint & OASF validation gate
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request'
+    outputs:
+      changed_skills: ${{ steps.changes.outputs.skills }}
+      eval_skills: ${{ steps.eval_targets.outputs.eval_skills }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -29,6 +33,13 @@ jobs:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: bash .github/scripts/detect-changed-skills.sh
+
+      - name: Detect changed skills with enabled evals
+        id: eval_targets
+        env:
+          CHANGED_SKILLS: ${{ steps.changes.outputs.skills }}
+          OUTPUT_KEY: eval_skills
+        run: bash .github/scripts/detect-eval-targets.sh
 
       - name: Install validation dependencies
         if: steps.changes.outputs.skills != '[]'
@@ -55,6 +66,169 @@ jobs:
       - name: No changed skills to validate
         if: steps.changes.outputs.skills == '[]'
         run: echo "No changed skills detected in PR diff."
+
+  skill-unit-evals:
+    name: Skill unit evals (${{ matrix.skill }})
+    runs-on: ubuntu-latest
+    needs: [skill-lint-oasf-validation]
+    if: ${{ github.event_name == 'pull_request' && needs.skill-lint-oasf-validation.result == 'success' && needs.skill-lint-oasf-validation.outputs.eval_skills != '[]' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        skill: ${{ fromJson(needs.skill-lint-oasf-validation.outputs.eval_skills) }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve promptfoo config
+        id: eval_config
+        run: |
+          set -euo pipefail
+          skill="${{ matrix.skill }}"
+          evals_dir="skills/${skill}/evals"
+          config=""
+
+          for candidate in \
+            "${evals_dir}/promptfooconfig.yaml" \
+            "${evals_dir}/promptfoo.yaml" \
+            "${evals_dir}/promptfooconfig.yml" \
+            "${evals_dir}/promptfoo.yml"; do
+            if [[ -f "$candidate" ]]; then
+              config="$candidate"
+              break
+            fi
+          done
+
+          if [[ -z "$config" ]]; then
+            config="$(find "$evals_dir" -maxdepth 1 -type f \( -name "*.yaml" -o -name "*.yml" \) | sort | head -n 1)"
+          fi
+
+          if [[ -z "$config" ]]; then
+            echo "::error::No eval config file found under ${evals_dir}"
+            exit 1
+          fi
+
+          echo "config=$config" >> "$GITHUB_OUTPUT"
+
+      - name: Run promptfoo unit eval
+        uses: promptfoo/promptfoo-action@v2
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          config: ${{ steps.eval_config.outputs.config }}
+          disable-comment: true
+          fail-threshold: 80
+          fail-on-threshold: 80
+          repeat: 3
+          min-pass-count: 2
+          repeat-min-pass: 2
+
+      - name: Collect eval results.json
+        run: |
+          set -euo pipefail
+          skill="${{ matrix.skill }}"
+          target_dir="eval-results/${skill}"
+          mkdir -p "$target_dir"
+
+          source_file=""
+          for candidate in \
+            "skills/${skill}/evals/results.json" \
+            "skills/${skill}/.promptfoo/latest.json" \
+            ".promptfoo/latest.json"; do
+            if [[ -f "$candidate" ]]; then
+              source_file="$candidate"
+              break
+            fi
+          done
+
+          if [[ -z "$source_file" ]]; then
+            source_file="$(find . -type f \( -name "results.json" -o -path "*/.promptfoo/latest.json" \) | head -n 1)"
+          fi
+
+          if [[ -z "$source_file" ]]; then
+            echo "::error::Unable to find promptfoo results output for ${skill}"
+            exit 1
+          fi
+
+          cp "$source_file" "${target_dir}/results.json"
+
+      - name: Upload eval results artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: unit-eval-results-${{ matrix.skill }}
+          path: eval-results/${{ matrix.skill }}
+          retention-days: 30
+
+  skill-unit-eval-summary:
+    name: Skill unit eval summary comment
+    runs-on: ubuntu-latest
+    needs: [skill-lint-oasf-validation, skill-unit-evals]
+    if: ${{ always() && github.event_name == 'pull_request' && needs.skill-lint-oasf-validation.result == 'success' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download eval result artifacts
+        if: needs.skill-lint-oasf-validation.outputs.eval_skills != '[]'
+        uses: actions/download-artifact@v4
+        with:
+          pattern: unit-eval-results-*
+          path: eval-results
+          merge-multiple: true
+
+      - name: Build PR summary markdown
+        if: needs.skill-lint-oasf-validation.outputs.eval_skills != '[]'
+        env:
+          EVAL_RESULTS_ROOT: eval-results
+          EVAL_SUMMARY_MARKDOWN: eval-summary.md
+          EVAL_SUMMARY_JSON: eval-summary.json
+          EVAL_FAIL_THRESHOLD: "80"
+        run: node .github/scripts/summarize-eval-results.mjs
+
+      - name: Build skipped summary markdown
+        if: needs.skill-lint-oasf-validation.outputs.eval_skills == '[]'
+        run: |
+          cat <<'EOF' > eval-summary.md
+          <!-- unit-eval-summary -->
+          ### Unit Eval Summary
+
+          No changed skills matched `has_evals=true` with eval cases, so unit eval was skipped.
+          EOF
+
+      - name: Post PR comment with eval summary
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const body = fs.readFileSync('eval-summary.md', 'utf8');
+            const { owner, repo } = context.repo;
+            const issue_number = context.issue.number;
+            const marker = '<!-- unit-eval-summary -->';
+
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner,
+              repo,
+              issue_number,
+              per_page: 100
+            });
+
+            const existing = comments.find((comment) =>
+              comment.user?.login === 'github-actions[bot]' && comment.body?.includes(marker)
+            );
+
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner,
+                repo,
+                comment_id: existing.id,
+                body
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner,
+                repo,
+                issue_number,
+                body
+              });
+            }
 
   repo-tests:
     name: Repository tests

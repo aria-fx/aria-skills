@@ -7,6 +7,7 @@ import path from "node:path";
 const scriptPath = path.resolve(process.cwd(), ".github/scripts/detect-changed-skills.sh");
 const lintSectionsScriptPath = path.resolve(process.cwd(), ".github/scripts/lint-skill-markdown-sections.sh");
 const warnEvalsScriptPath = path.resolve(process.cwd(), ".github/scripts/warn-missing-evals.sh");
+const detectEvalTargetsScriptPath = path.resolve(process.cwd(), ".github/scripts/detect-eval-targets.sh");
 const tempRepos: string[] = [];
 
 function run(command: string, cwd: string): string {
@@ -117,5 +118,32 @@ describe("skill lint scripts", () => {
     });
 
     expect(output).toContain("::warning::[aria-skill-alpha] Missing evals/*.yaml (warning only)");
+  });
+
+  it("detects only changed skills with has_evals=true and eval files", () => {
+    const repoDir = mkdtempSync(path.join(tmpdir(), "skill-eval-targets-"));
+    tempRepos.push(repoDir);
+
+    mkdirSync(path.join(repoDir, "skills", "aria-skill-alpha", "evals"), { recursive: true });
+    writeFileSync(path.join(repoDir, "skills", "aria-skill-alpha", "oasf-record.json"), JSON.stringify({ has_evals: true }));
+    writeFileSync(path.join(repoDir, "skills", "aria-skill-alpha", "evals", "promptfoo.yaml"), "prompts: []\n");
+
+    mkdirSync(path.join(repoDir, "skills", "aria-skill-beta", "evals"), { recursive: true });
+    writeFileSync(path.join(repoDir, "skills", "aria-skill-beta", "oasf-record.json"), JSON.stringify({ has_evals: false }));
+    writeFileSync(path.join(repoDir, "skills", "aria-skill-beta", "evals", "promptfoo.yaml"), "prompts: []\n");
+
+    mkdirSync(path.join(repoDir, "skills", "aria-skill-gamma"), { recursive: true });
+    writeFileSync(path.join(repoDir, "skills", "aria-skill-gamma", "oasf-record.json"), JSON.stringify({ has_evals: true }));
+
+    const output = execFileSync("bash", [detectEvalTargetsScriptPath], {
+      cwd: repoDir,
+      env: {
+        ...process.env,
+        CHANGED_SKILLS: '["aria-skill-alpha","aria-skill-beta","aria-skill-gamma","aria-skill-missing"]'
+      },
+      encoding: "utf8"
+    }).trim();
+
+    expect(output).toBe('["aria-skill-alpha"]');
   });
 });
