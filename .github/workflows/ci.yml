@@ -5,14 +5,14 @@ on:
   push:
     branches: [main]
   schedule:
-    - cron: "0 6 * * *"
+    - cron: "0 6 * * 1"
   workflow_dispatch:
     inputs:
       all_skills:
         description: "Run evals for all skills with has_evals=true"
         required: false
-        type: boolean
-        default: false
+        type: string
+        default: "false"
       eval_model_matrix:
         description: "Optional JSON array override for eval model matrix"
         required: false
@@ -232,6 +232,23 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Snapshot committed model affinity baseline
+        if: needs.skill-lint-oasf-validation.outputs.eval_skills != '[]' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
+        env:
+          EVAL_SKILLS: ${{ needs.skill-lint-oasf-validation.outputs.eval_skills }}
+        run: |
+          set -euo pipefail
+          mkdir -p model-affinity-baseline/skills
+          while IFS= read -r skill; do
+            [[ -z "$skill" ]] && continue
+            source_path="skills/${skill}/model-affinity.json"
+            if [[ -f "$source_path" ]]; then
+              target_dir="model-affinity-baseline/skills/${skill}"
+              mkdir -p "$target_dir"
+              cp "$source_path" "${target_dir}/model-affinity.json"
+            fi
+          done < <(echo "${EVAL_SKILLS}" | jq -r '.[]')
+
       - name: Download eval result artifacts
         if: needs.skill-lint-oasf-validation.outputs.eval_skills != '[]'
         uses: actions/download-artifact@v4.1.3
@@ -308,6 +325,14 @@ jobs:
             skills/*/model-affinity.json
           retention-days: 30
 
+      - name: Upload model affinity baseline artifact
+        if: needs.skill-lint-oasf-validation.outputs.eval_skills != '[]' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
+        uses: actions/upload-artifact@v4
+        with:
+          name: model-affinity-baseline
+          path: model-affinity-baseline
+          retention-days: 30
+
       - name: Commit model affinity snapshots to main
         if: github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.skill-lint-oasf-validation.outputs.eval_skills != '[]'
         run: |
@@ -322,6 +347,97 @@ jobs:
           git add skills/*/model-affinity.json
           git commit -m "ci: update model affinity snapshots [skip ci]"
           git push origin HEAD:main
+
+  skill-model-drift-detection:
+    name: Skill model drift detection
+    runs-on: ubuntu-latest
+    needs: [skill-lint-oasf-validation, skill-unit-eval-summary]
+    if: ${{ (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && needs.skill-lint-oasf-validation.result == 'success' && needs.skill-lint-oasf-validation.outputs.eval_skills != '[]' && needs.skill-unit-eval-summary.result == 'success' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download current model affinity artifact
+        uses: actions/download-artifact@v4.1.3
+        with:
+          name: unit-eval-summary
+          path: eval-summary/current
+
+      - name: Download committed model affinity baseline artifact
+        uses: actions/download-artifact@v4.1.3
+        with:
+          name: model-affinity-baseline
+          path: model-affinity-baseline
+
+      - name: Detect model drift against committed baseline
+        id: drift
+        env:
+          BASELINE_AFFINITY_ROOT: model-affinity-baseline/skills
+          CURRENT_AFFINITY_ROOT: eval-summary/current/skills
+          DRIFT_MAX_PASS_RATE_DROP: "3"
+          DRIFT_REPORT_JSON: model-drift-report.json
+          DRIFT_REPORT_MARKDOWN: model-drift-report.md
+        run: node .github/scripts/detect-model-drift.mjs
+
+      - name: Upload model drift report artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: model-drift-report
+          path: |
+            model-drift-report.json
+            model-drift-report.md
+          retention-days: 30
+
+      - name: Open cross-repo drift issue
+        if: steps.drift.outputs.drift_detected == 'true' && secrets.ARIA_REPO_ISSUE_TOKEN != ''
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.ARIA_REPO_ISSUE_TOKEN }}
+          script: |
+            const fs = require("fs");
+            const targetOwner = "aria-fx";
+            const targetRepo = "aria";
+            const report = JSON.parse(fs.readFileSync("model-drift-report.json", "utf8"));
+            const reportMarkdown = fs.readFileSync("model-drift-report.md", "utf8");
+            const marker = `<!-- model-drift-event:${report.eventKey} -->`;
+
+            const title = `[Model Drift] ${report.affectedSkills.length} skill(s) changed in aria-skills`;
+            const body = [
+              marker,
+              "## Automated Weekly Model Drift Detection",
+              "",
+              reportMarkdown,
+              "",
+              "### Recommended actions",
+              "- Review `skills/<skill>/model-affinity.json` for each affected skill.",
+              "- Re-run targeted promptfoo evals to confirm the drift signal.",
+              "- If expected, update committed affinity baselines in `aria-fx/aria-skills`."
+            ].join("\n");
+
+            const openIssues = await github.paginate(github.rest.issues.listForRepo, {
+              owner: targetOwner,
+              repo: targetRepo,
+              state: "open",
+              per_page: 100
+            });
+
+            const duplicate = openIssues.find((issue) => !issue.pull_request && issue.body?.includes(marker));
+            if (duplicate) {
+              core.info(`Existing drift issue found: #${duplicate.number} (${duplicate.html_url})`);
+              return;
+            }
+
+            const created = await github.rest.issues.create({
+              owner: targetOwner,
+              repo: targetRepo,
+              title,
+              body
+            });
+            core.info(`Created drift issue: ${created.data.html_url}`);
+
+      - name: Warn when drift issue token is missing
+        if: steps.drift.outputs.drift_detected == 'true' && secrets.ARIA_REPO_ISSUE_TOKEN == ''
+        run: echo "::warning::Detected drift but ARIA_REPO_ISSUE_TOKEN is not set; unable to create cross-repo issue."
 
   skill-unit-eval-regression-gate:
     name: Skill unit eval regression gate
