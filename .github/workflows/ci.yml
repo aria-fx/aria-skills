@@ -4,21 +4,37 @@ on:
   pull_request:
   push:
     branches: [main]
+  schedule:
+    - cron: "0 6 * * *"
   workflow_dispatch:
+    inputs:
+      all_skills:
+        description: "Run evals for all skills with has_evals=true"
+        required: false
+        type: boolean
+        default: false
+      eval_model_matrix:
+        description: "Optional JSON array override for eval model matrix"
+        required: false
+        type: string
 
 permissions:
   actions: read
-  contents: read
+  contents: write
   pull-requests: write
+
+env:
+  DEFAULT_EVAL_MODEL_MATRIX: >-
+    [{"label":"claude-sonnet-4","provider":"anthropic:claude-sonnet-4"},{"label":"claude-haiku-4-5","provider":"anthropic:claude-haiku-4-5"},{"label":"gpt-4o","provider":"openai:gpt-4o"},{"label":"gpt-4o-mini","provider":"openai:gpt-4o-mini"},{"label":"azure-gpt-4o","provider":"azureopenai:gpt-4o"}]
 
 jobs:
   skill-lint-oasf-validation:
     name: Skill lint & OASF validation gate
     runs-on: ubuntu-latest
-    if: ${{ github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref == 'refs/heads/main') }}
     outputs:
       changed_skills: ${{ steps.changes.outputs.skills }}
       eval_skills: ${{ steps.eval_targets.outputs.eval_skills }}
+      eval_models: ${{ steps.eval_models.outputs.eval_models }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -33,7 +49,20 @@ jobs:
         env:
           BASE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
           HEAD_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
-        run: bash .github/scripts/detect-changed-skills.sh
+          FORCE_ALL_SKILLS: ${{ (github.event_name == 'workflow_dispatch' && github.event.inputs.all_skills == 'true') || github.event_name == 'schedule' }}
+        run: |
+          set -euo pipefail
+          if [[ "${FORCE_ALL_SKILLS}" == "true" ]]; then
+            all_skills="$(
+              find skills -mindepth 1 -maxdepth 1 -type d -printf '%f\n' \
+                | sort \
+                | jq -R -s -c 'split("\n") | map(select(. != ""))'
+            )"
+            echo "skills=${all_skills}" >> "$GITHUB_OUTPUT"
+            echo "$all_skills"
+          else
+            bash .github/scripts/detect-changed-skills.sh
+          fi
 
       - name: Detect changed skills with enabled evals
         id: eval_targets
@@ -41,6 +70,21 @@ jobs:
           CHANGED_SKILLS: ${{ steps.changes.outputs.skills }}
           OUTPUT_KEY: eval_skills
         run: bash .github/scripts/detect-eval-targets.sh
+
+      - name: Resolve eval model matrix
+        id: eval_models
+        env:
+          DEFAULT_MATRIX: ${{ env.DEFAULT_EVAL_MODEL_MATRIX }}
+          INPUT_MATRIX: ${{ github.event.inputs.eval_model_matrix || '' }}
+        run: |
+          set -euo pipefail
+          models="${DEFAULT_MATRIX}"
+          if [[ -n "${INPUT_MATRIX}" ]]; then
+            models="${INPUT_MATRIX}"
+          fi
+
+          echo "$models" | jq -e 'if type != "array" then false else all(.[]; has("label") and has("provider")) end' >/dev/null
+          echo "eval_models=${models}" >> "$GITHUB_OUTPUT"
 
       - name: Install validation dependencies
         if: steps.changes.outputs.skills != '[]'
@@ -69,14 +113,15 @@ jobs:
         run: echo "No changed skills detected in PR diff."
 
   skill-unit-evals:
-    name: Skill unit evals (${{ matrix.skill }})
+    name: Skill unit evals (${{ matrix.skill }} / ${{ matrix.model.label }})
     runs-on: ubuntu-latest
     needs: [skill-lint-oasf-validation]
-    if: ${{ (github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref == 'refs/heads/main')) && needs.skill-lint-oasf-validation.result == 'success' && needs.skill-lint-oasf-validation.outputs.eval_skills != '[]' }}
+    if: ${{ needs.skill-lint-oasf-validation.result == 'success' && needs.skill-lint-oasf-validation.outputs.eval_skills != '[]' }}
     strategy:
       fail-fast: false
       matrix:
         skill: ${{ fromJson(needs.skill-lint-oasf-validation.outputs.eval_skills) }}
+        model: ${{ fromJson(needs.skill-lint-oasf-validation.outputs.eval_models) }}
 
     steps:
       - uses: actions/checkout@v4
@@ -113,6 +158,9 @@ jobs:
 
       - name: Run promptfoo unit eval
         uses: promptfoo/promptfoo-action@v2
+        env:
+          PROMPTFOO_EVAL_PROVIDER: ${{ matrix.model.provider }}
+          PROMPTFOO_EVAL_MODEL_LABEL: ${{ matrix.model.label }}
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           config: ${{ steps.eval_config.outputs.config }}
@@ -124,10 +172,12 @@ jobs:
           repeat-min-pass: 2
 
       - name: Collect eval results.json
+        if: always()
         run: |
           set -euo pipefail
           skill="${{ matrix.skill }}"
-          target_dir="eval-results/${skill}"
+          model="${{ matrix.model.label }}"
+          target_dir="eval-results/${skill}/${model}"
           mkdir -p "$target_dir"
 
           source_file=""
@@ -146,24 +196,39 @@ jobs:
           fi
 
           if [[ -z "$source_file" ]]; then
-            echo "::error::Unable to find promptfoo results output for ${skill}"
-            exit 1
+            cat <<EOF > "${target_dir}/results.json"
+            {
+              "stats": {
+                "total": 1,
+                "passed": 0,
+                "failures": 1
+              },
+              "results": [
+                {
+                  "pass": false,
+                  "error": "promptfoo results output missing"
+                }
+              ]
+            }
+            EOF
+            exit 0
           fi
 
           cp "$source_file" "${target_dir}/results.json"
 
       - name: Upload eval results artifact
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: unit-eval-results-${{ matrix.skill }}
-          path: eval-results/${{ matrix.skill }}
+          name: eval-${{ matrix.skill }}-${{ matrix.model.label }}
+          path: eval-results/${{ matrix.skill }}/${{ matrix.model.label }}
           retention-days: 30
 
   skill-unit-eval-summary:
     name: Skill unit eval summary comment
     runs-on: ubuntu-latest
     needs: [skill-lint-oasf-validation, skill-unit-evals]
-    if: ${{ always() && (github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref == 'refs/heads/main')) && needs.skill-lint-oasf-validation.result == 'success' }}
+    if: ${{ always() && needs.skill-lint-oasf-validation.result == 'success' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -171,7 +236,7 @@ jobs:
         if: needs.skill-lint-oasf-validation.outputs.eval_skills != '[]'
         uses: actions/download-artifact@v4.1.3
         with:
-          pattern: unit-eval-results-*
+          pattern: eval-*
           path: eval-results
           merge-multiple: true
 
@@ -240,7 +305,23 @@ jobs:
           path: |
             eval-summary.md
             eval-summary.json
+            skills/*/model-affinity.json
           retention-days: 30
+
+      - name: Commit model affinity snapshots to main
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.skill-lint-oasf-validation.outputs.eval_skills != '[]'
+        run: |
+          set -euo pipefail
+          if git diff --quiet -- skills/*/model-affinity.json; then
+            echo "No model-affinity changes to commit."
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add skills/*/model-affinity.json
+          git commit -m "ci: update model affinity snapshots [skip ci]"
+          git push origin HEAD:main
 
   skill-unit-eval-regression-gate:
     name: Skill unit eval regression gate
