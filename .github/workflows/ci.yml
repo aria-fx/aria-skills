@@ -28,10 +28,7 @@ jobs:
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-        run: |
-          CHANGED=$(git diff --name-only "$BASE_SHA" "$HEAD_SHA" | awk -F/ '/^skills\/[^/]+\// { print $2 }' | sort -u | jq -R -s -c 'split("\n") | map(select(. != ""))')
-          echo "skills=$CHANGED" >> "$GITHUB_OUTPUT"
-          echo "Changed skills: $CHANGED"
+        run: bash .github/scripts/detect-changed-skills.sh
 
       - name: Install validation dependencies
         if: steps.changes.outputs.skills != '[]'
