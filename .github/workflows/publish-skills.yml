@@ -99,11 +99,16 @@ jobs:
         env:
           SKILL_VERSION_MAP: ${{ needs.detect-changes.outputs.versions }}
         run: |
-          VERSION=$(jq -r --arg skill "${{ matrix.skill }}" '.[$skill] // empty' <<< "$SKILL_VERSION_MAP")
-          if [[ -z "$VERSION" ]]; then
-            VERSION=$(jq -r '.version' skills/${{ matrix.skill }}/oasf-record.json)
+          RECORD_PATH="skills/${{ matrix.skill }}/oasf-record.json"
+          VERSION=$(jq -r '.version' "$RECORD_PATH")
+          NAME=$(jq -r '.name' "$RECORD_PATH" | tr '/' '-')
+          MAPPED_VERSION=$(jq -r --arg skill "${{ matrix.skill }}" '.[$skill] // empty' <<< "$SKILL_VERSION_MAP")
+
+          if [[ -n "$MAPPED_VERSION" && "$MAPPED_VERSION" != "$VERSION" ]]; then
+            echo "Version mismatch for ${{ matrix.skill }}: detect-changes reported '$MAPPED_VERSION' but $RECORD_PATH contains '$VERSION'." >&2
+            exit 1
           fi
-          NAME=$(jq -r '.name' skills/${{ matrix.skill }}/oasf-record.json | tr '/' '-')
+
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "name=$NAME" >> $GITHUB_OUTPUT
 
