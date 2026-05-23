@@ -4,8 +4,15 @@ on:
   pull_request:
   push:
     branches: [main]
+  schedule:
+    - cron: "0 6 * * *"
   workflow_dispatch:
     inputs:
+      all_skills:
+        description: "Run evals for all skills with has_evals=true"
+        required: false
+        type: boolean
+        default: false
       eval_model_matrix:
         description: "Optional JSON array override for eval model matrix"
         required: false
@@ -24,7 +31,6 @@ jobs:
   skill-lint-oasf-validation:
     name: Skill lint & OASF validation gate
     runs-on: ubuntu-latest
-    if: ${{ github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref == 'refs/heads/main') }}
     outputs:
       changed_skills: ${{ steps.changes.outputs.skills }}
       eval_skills: ${{ steps.eval_targets.outputs.eval_skills }}
@@ -43,7 +49,20 @@ jobs:
         env:
           BASE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
           HEAD_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
-        run: bash .github/scripts/detect-changed-skills.sh
+          FORCE_ALL_SKILLS: ${{ (github.event_name == 'workflow_dispatch' && github.event.inputs.all_skills == 'true') || github.event_name == 'schedule' }}
+        run: |
+          set -euo pipefail
+          if [[ "${FORCE_ALL_SKILLS}" == "true" ]]; then
+            all_skills="$(
+              find skills -mindepth 1 -maxdepth 1 -type d -printf '%f\n' \
+                | sort \
+                | jq -R -s -c 'split("\n") | map(select(. != ""))'
+            )"
+            echo "skills=${all_skills}" >> "$GITHUB_OUTPUT"
+            echo "$all_skills"
+          else
+            bash .github/scripts/detect-changed-skills.sh
+          fi
 
       - name: Detect changed skills with enabled evals
         id: eval_targets
@@ -97,7 +116,7 @@ jobs:
     name: Skill unit evals (${{ matrix.skill }} / ${{ matrix.model.label }})
     runs-on: ubuntu-latest
     needs: [skill-lint-oasf-validation]
-    if: ${{ (github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref == 'refs/heads/main')) && needs.skill-lint-oasf-validation.result == 'success' && needs.skill-lint-oasf-validation.outputs.eval_skills != '[]' }}
+    if: ${{ needs.skill-lint-oasf-validation.result == 'success' && needs.skill-lint-oasf-validation.outputs.eval_skills != '[]' }}
     strategy:
       fail-fast: false
       matrix:
@@ -209,7 +228,7 @@ jobs:
     name: Skill unit eval summary comment
     runs-on: ubuntu-latest
     needs: [skill-lint-oasf-validation, skill-unit-evals]
-    if: ${{ always() && (github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref == 'refs/heads/main')) && needs.skill-lint-oasf-validation.result == 'success' }}
+    if: ${{ always() && needs.skill-lint-oasf-validation.result == 'success' }}
     steps:
       - uses: actions/checkout@v4
 
