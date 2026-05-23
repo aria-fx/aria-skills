@@ -8,6 +8,8 @@ const scriptPath = path.resolve(process.cwd(), ".github/scripts/detect-changed-s
 const lintSectionsScriptPath = path.resolve(process.cwd(), ".github/scripts/lint-skill-markdown-sections.sh");
 const warnEvalsScriptPath = path.resolve(process.cwd(), ".github/scripts/warn-missing-evals.sh");
 const detectEvalTargetsScriptPath = path.resolve(process.cwd(), ".github/scripts/detect-eval-targets.sh");
+const bumpSkillVersionScriptPath = path.resolve(process.cwd(), ".github/scripts/bump-skill-version.sh");
+const filterPublishableSkillsScriptPath = path.resolve(process.cwd(), ".github/scripts/filter-publishable-skills.sh");
 const compareEvalSummaryScriptPath = path.resolve(process.cwd(), ".github/scripts/compare-eval-summary.mjs");
 const summarizeEvalResultsScriptPath = path.resolve(process.cwd(), ".github/scripts/summarize-eval-results.mjs");
 const tempRepos: string[] = [];
@@ -142,6 +144,57 @@ describe("skill lint scripts", () => {
       env: {
         ...process.env,
         CHANGED_SKILLS: '["aria-skill-alpha","aria-skill-beta","aria-skill-gamma","aria-skill-missing"]'
+      },
+      encoding: "utf8"
+    }).trim();
+
+    expect(output).toBe('["aria-skill-alpha"]');
+  });
+});
+
+describe("publish workflow helper scripts", () => {
+  it("patch-bumps version.txt for each changed skill and falls back to oasf-record version", () => {
+    const repoDir = mkdtempSync(path.join(tmpdir(), "skill-version-bump-"));
+    tempRepos.push(repoDir);
+
+    mkdirSync(path.join(repoDir, "skills", "aria-skill-alpha"), { recursive: true });
+    writeFileSync(path.join(repoDir, "skills", "aria-skill-alpha", "version.txt"), "1.2.3\n");
+
+    mkdirSync(path.join(repoDir, "skills", "aria-skill-beta"), { recursive: true });
+    writeFileSync(path.join(repoDir, "skills", "aria-skill-beta", "oasf-record.json"), JSON.stringify({ version: "2.0.9" }));
+
+    const output = execFileSync("bash", [bumpSkillVersionScriptPath], {
+      cwd: repoDir,
+      env: {
+        ...process.env,
+        CHANGED_SKILLS: '["aria-skill-alpha","aria-skill-beta","aria-skill-missing"]'
+      },
+      encoding: "utf8"
+    }).trim();
+
+    expect(JSON.parse(output)).toEqual({
+      "aria-skill-alpha": "1.2.4",
+      "aria-skill-beta": "2.0.10"
+    });
+
+    expect(readFileSync(path.join(repoDir, "skills", "aria-skill-alpha", "version.txt"), "utf8").trim()).toBe("1.2.4");
+    expect(readFileSync(path.join(repoDir, "skills", "aria-skill-beta", "version.txt"), "utf8").trim()).toBe("2.0.10");
+  });
+
+  it("filters publishable skills to only those with mcp-manifest.json", () => {
+    const repoDir = mkdtempSync(path.join(tmpdir(), "skill-publishable-filter-"));
+    tempRepos.push(repoDir);
+
+    mkdirSync(path.join(repoDir, "skills", "aria-skill-alpha"), { recursive: true });
+    writeFileSync(path.join(repoDir, "skills", "aria-skill-alpha", "mcp-manifest.json"), "{}\n");
+
+    mkdirSync(path.join(repoDir, "skills", "aria-skill-beta"), { recursive: true });
+
+    const output = execFileSync("bash", [filterPublishableSkillsScriptPath], {
+      cwd: repoDir,
+      env: {
+        ...process.env,
+        CHANGED_SKILLS: '["aria-skill-alpha","aria-skill-beta"]'
       },
       encoding: "utf8"
     }).trim();
