@@ -9,6 +9,7 @@ const lintSectionsScriptPath = path.resolve(process.cwd(), ".github/scripts/lint
 const warnEvalsScriptPath = path.resolve(process.cwd(), ".github/scripts/warn-missing-evals.sh");
 const detectEvalTargetsScriptPath = path.resolve(process.cwd(), ".github/scripts/detect-eval-targets.sh");
 const compareEvalSummaryScriptPath = path.resolve(process.cwd(), ".github/scripts/compare-eval-summary.mjs");
+const summarizeEvalResultsScriptPath = path.resolve(process.cwd(), ".github/scripts/summarize-eval-results.mjs");
 const tempRepos: string[] = [];
 
 function run(command: string, cwd: string): string {
@@ -247,5 +248,71 @@ describe("compare-eval-summary.mjs", () => {
 
     expect(output).toContain("::notice::No baseline eval summary artifact found");
     expect(output).toContain("Regression gate auto-passes");
+  });
+});
+
+describe("summarize-eval-results.mjs", () => {
+  it("ranks models by pass rate then avg tokens and writes model-affinity.json", () => {
+    const repoDir = mkdtempSync(path.join(tmpdir(), "skill-eval-summary-"));
+    tempRepos.push(repoDir);
+
+    mkdirSync(path.join(repoDir, "skills", "aria-skill-alpha"), { recursive: true });
+    mkdirSync(path.join(repoDir, "eval-results", "aria-skill-alpha", "gpt-4o-mini"), { recursive: true });
+    mkdirSync(path.join(repoDir, "eval-results", "aria-skill-alpha", "gpt-4o"), { recursive: true });
+    mkdirSync(path.join(repoDir, "eval-results", "aria-skill-alpha", "claude-sonnet-4"), { recursive: true });
+
+    writeFileSync(
+      path.join(repoDir, "eval-results", "aria-skill-alpha", "gpt-4o-mini", "results.json"),
+      JSON.stringify({ stats: { total: 4, passed: 4, totalTokens: 360 } }, null, 2)
+    );
+    writeFileSync(
+      path.join(repoDir, "eval-results", "aria-skill-alpha", "gpt-4o", "results.json"),
+      JSON.stringify({ stats: { total: 4, passed: 4, totalTokens: 400 } }, null, 2)
+    );
+    writeFileSync(
+      path.join(repoDir, "eval-results", "aria-skill-alpha", "claude-sonnet-4", "results.json"),
+      JSON.stringify({ stats: { total: 4, passed: 3, totalTokens: 300 } }, null, 2)
+    );
+
+    execFileSync("node", [summarizeEvalResultsScriptPath], {
+      cwd: repoDir,
+      env: {
+        ...process.env,
+        EVAL_RESULTS_ROOT: path.join(repoDir, "eval-results"),
+        EVAL_SUMMARY_MARKDOWN: path.join(repoDir, "eval-summary.md"),
+        EVAL_SUMMARY_JSON: path.join(repoDir, "eval-summary.json"),
+        GITHUB_WORKSPACE: repoDir,
+        GITHUB_SHA: "abc123"
+      },
+      encoding: "utf8"
+    });
+
+    const summary = JSON.parse(readFileSync(path.join(repoDir, "eval-summary.json"), "utf8")) as Array<{
+      skill: string;
+      optimalModel: string;
+      passRate: number;
+      avgTokens: number;
+    }>;
+    expect(summary).toEqual([
+      { skill: "aria-skill-alpha", optimalModel: "gpt-4o-mini", passRate: 100, avgTokens: 90 }
+    ]);
+
+    const affinity = JSON.parse(
+      readFileSync(path.join(repoDir, "skills", "aria-skill-alpha", "model-affinity.json"), "utf8")
+    ) as {
+      optimalModel: string;
+      scoreboard: Array<{ model: string; passRate: number; avgTokens: number }>;
+      commitSha: string;
+      selectionCriteria: { primary: string; tiebreaker: string };
+    };
+
+    expect(affinity.optimalModel).toBe("gpt-4o-mini");
+    expect(affinity.scoreboard.map((row) => row.model)).toEqual(["gpt-4o-mini", "gpt-4o", "claude-sonnet-4"]);
+    expect(affinity.commitSha).toBe("abc123");
+    expect(affinity.selectionCriteria).toEqual({ primary: "passRate desc", tiebreaker: "avgTokens asc" });
+
+    const markdown = readFileSync(path.join(repoDir, "eval-summary.md"), "utf8");
+    expect(markdown).toContain("### Multi-Model Eval Scoreboard");
+    expect(markdown).toContain("**gpt-4o-mini ← optimal**");
   });
 });
