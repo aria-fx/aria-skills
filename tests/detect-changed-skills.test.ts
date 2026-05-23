@@ -8,6 +8,7 @@ const scriptPath = path.resolve(process.cwd(), ".github/scripts/detect-changed-s
 const lintSectionsScriptPath = path.resolve(process.cwd(), ".github/scripts/lint-skill-markdown-sections.sh");
 const warnEvalsScriptPath = path.resolve(process.cwd(), ".github/scripts/warn-missing-evals.sh");
 const detectEvalTargetsScriptPath = path.resolve(process.cwd(), ".github/scripts/detect-eval-targets.sh");
+const compareEvalSummaryScriptPath = path.resolve(process.cwd(), ".github/scripts/compare-eval-summary.mjs");
 const tempRepos: string[] = [];
 
 function run(command: string, cwd: string): string {
@@ -145,5 +146,106 @@ describe("skill lint scripts", () => {
     }).trim();
 
     expect(output).toBe('["aria-skill-alpha"]');
+  });
+});
+
+describe("compare-eval-summary.mjs", () => {
+  it("passes when pass rate drop is at most five percentage points and logs delta", () => {
+    const repoDir = mkdtempSync(path.join(tmpdir(), "skill-eval-regression-pass-"));
+    tempRepos.push(repoDir);
+
+    const currentDir = path.join(repoDir, "current");
+    const baselineDir = path.join(repoDir, "baseline");
+    mkdirSync(currentDir, { recursive: true });
+    mkdirSync(baselineDir, { recursive: true });
+
+    writeFileSync(
+      path.join(currentDir, "eval-summary.json"),
+      JSON.stringify([{ skill: "aria-skill-alpha", passRate: 84 }], null, 2)
+    );
+    writeFileSync(
+      path.join(baselineDir, "eval-summary.json"),
+      JSON.stringify([{ skill: "aria-skill-alpha", passRate: 88 }], null, 2)
+    );
+
+    const output = execFileSync("node", [compareEvalSummaryScriptPath], {
+      cwd: repoDir,
+      env: {
+        ...process.env,
+        CURRENT_SUMMARY_PATH: currentDir,
+        BASELINE_SUMMARY_PATH: baselineDir,
+        MAX_ALLOWED_DROP_POINTS: "5"
+      },
+      encoding: "utf8"
+    });
+
+    expect(output).toContain("[aria-skill-alpha] baseline=88% current=84% delta=-4pp");
+    expect(output).toContain("Regression gate passed.");
+  });
+
+  it("fails when pass rate drops by more than five percentage points", () => {
+    const repoDir = mkdtempSync(path.join(tmpdir(), "skill-eval-regression-fail-"));
+    tempRepos.push(repoDir);
+
+    const currentDir = path.join(repoDir, "current");
+    const baselineDir = path.join(repoDir, "baseline");
+    mkdirSync(currentDir, { recursive: true });
+    mkdirSync(baselineDir, { recursive: true });
+
+    writeFileSync(
+      path.join(currentDir, "eval-summary.json"),
+      JSON.stringify([{ skill: "aria-skill-alpha", passRate: 82 }], null, 2)
+    );
+    writeFileSync(
+      path.join(baselineDir, "eval-summary.json"),
+      JSON.stringify([{ skill: "aria-skill-alpha", passRate: 90 }], null, 2)
+    );
+
+    try {
+      execFileSync("node", [compareEvalSummaryScriptPath], {
+        cwd: repoDir,
+        env: {
+          ...process.env,
+          CURRENT_SUMMARY_PATH: currentDir,
+          BASELINE_SUMMARY_PATH: baselineDir,
+          MAX_ALLOWED_DROP_POINTS: "5"
+        },
+        encoding: "utf8"
+      });
+    } catch (error) {
+      const typedError = error as { stdout?: string; stderr?: string };
+      const combinedOutput = `${typedError.stdout || ""}${typedError.stderr || ""}`;
+      expect(combinedOutput).toContain("Pass rate regressed by 8 percentage points");
+      expect(combinedOutput).toContain("Maximum allowed drop is 5");
+      return;
+    }
+
+    expect.fail("Expected regression comparison script to fail when drop exceeds threshold");
+  });
+
+  it("auto-passes with a notice when baseline is missing", () => {
+    const repoDir = mkdtempSync(path.join(tmpdir(), "skill-eval-regression-missing-baseline-"));
+    tempRepos.push(repoDir);
+
+    const currentDir = path.join(repoDir, "current");
+    mkdirSync(currentDir, { recursive: true });
+    writeFileSync(
+      path.join(currentDir, "eval-summary.json"),
+      JSON.stringify([{ skill: "aria-skill-alpha", passRate: 100 }], null, 2)
+    );
+
+    const output = execFileSync("node", [compareEvalSummaryScriptPath], {
+      cwd: repoDir,
+      env: {
+        ...process.env,
+        CURRENT_SUMMARY_PATH: currentDir,
+        BASELINE_SUMMARY_PATH: path.join(repoDir, "missing-baseline"),
+        MAX_ALLOWED_DROP_POINTS: "5"
+      },
+      encoding: "utf8"
+    });
+
+    expect(output).toContain("::notice::No baseline eval summary artifact found");
+    expect(output).toContain("Regression gate auto-passes");
   });
 });
