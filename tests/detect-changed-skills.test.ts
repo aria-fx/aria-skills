@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -475,5 +475,58 @@ describe("detect-model-drift.mjs", () => {
     expect(report.driftDetected).toBe(false);
     expect(report.affectedSkills).toEqual([]);
     expect(readFileSync(githubOutput, "utf8")).toContain("drift_detected=false");
+  });
+
+  it("falls back to default threshold when DRIFT_MAX_PASS_RATE_DROP is not numeric", () => {
+    const repoDir = mkdtempSync(path.join(tmpdir(), "skill-model-drift-invalid-threshold-"));
+    tempRepos.push(repoDir);
+
+    const baselineRoot = path.join(repoDir, "baseline", "skills");
+    const currentRoot = path.join(repoDir, "current", "skills");
+    mkdirSync(path.join(baselineRoot, "aria-skill-alpha"), { recursive: true });
+    mkdirSync(path.join(currentRoot, "aria-skill-alpha"), { recursive: true });
+
+    writeFileSync(
+      path.join(baselineRoot, "aria-skill-alpha", "model-affinity.json"),
+      JSON.stringify({
+        optimalModel: "gpt-4o-mini",
+        scoreboard: [{ model: "gpt-4o-mini", passRate: 95, avgTokens: 100 }]
+      }, null, 2)
+    );
+    writeFileSync(
+      path.join(currentRoot, "aria-skill-alpha", "model-affinity.json"),
+      JSON.stringify({
+        optimalModel: "gpt-4o-mini",
+        scoreboard: [{ model: "gpt-4o-mini", passRate: 90, avgTokens: 105 }]
+      }, null, 2)
+    );
+
+    const execution = spawnSync("node", [detectModelDriftScriptPath], {
+      cwd: repoDir,
+      env: {
+        ...process.env,
+        BASELINE_AFFINITY_ROOT: baselineRoot,
+        CURRENT_AFFINITY_ROOT: currentRoot,
+        DRIFT_MAX_PASS_RATE_DROP: "3pp",
+        DRIFT_REPORT_JSON: path.join(repoDir, "drift-report.json"),
+        DRIFT_REPORT_MARKDOWN: path.join(repoDir, "drift-report.md")
+      },
+      encoding: "utf8"
+    });
+    expect(execution.status).toBe(0);
+    const output = `${execution.stdout}${execution.stderr}`;
+
+    expect(output).toContain("Invalid DRIFT_MAX_PASS_RATE_DROP value");
+    const report = JSON.parse(readFileSync(path.join(repoDir, "drift-report.json"), "utf8")) as {
+      maxDrop: number;
+      driftDetected: boolean;
+      affectedSkills: Array<{ passRateDropped: boolean; trigger: string }>;
+    };
+    expect(report.maxDrop).toBe(3);
+    expect(report.driftDetected).toBe(true);
+    expect(report.affectedSkills[0]).toMatchObject({
+      passRateDropped: true,
+      trigger: "pass-rate-drop>3"
+    });
   });
 });

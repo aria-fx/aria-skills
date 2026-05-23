@@ -7,7 +7,17 @@ import process from "node:process";
 
 const baselineRoot = process.env.BASELINE_AFFINITY_ROOT || "model-affinity-baseline/skills";
 const currentRoot = process.env.CURRENT_AFFINITY_ROOT || "skills";
-const maxDrop = Number(process.env.DRIFT_MAX_PASS_RATE_DROP || "3");
+const defaultMaxDrop = 3;
+const maxDropEnv = process.env.DRIFT_MAX_PASS_RATE_DROP;
+const parsedMaxDrop = maxDropEnv === undefined || maxDropEnv.trim() === ""
+  ? defaultMaxDrop
+  : Number(maxDropEnv);
+const maxDrop = Number.isFinite(parsedMaxDrop) ? parsedMaxDrop : defaultMaxDrop;
+if (!Number.isFinite(parsedMaxDrop)) {
+  console.warn(
+    `::warning::Invalid DRIFT_MAX_PASS_RATE_DROP value "${maxDropEnv}". Falling back to default ${defaultMaxDrop}.`
+  );
+}
 const reportJsonPath = process.env.DRIFT_REPORT_JSON || "model-drift-report.json";
 const reportMarkdownPath = process.env.DRIFT_REPORT_MARKDOWN || "model-drift-report.md";
 const githubOutputPath = process.env.GITHUB_OUTPUT;
