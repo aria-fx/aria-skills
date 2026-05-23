@@ -196,21 +196,8 @@ jobs:
           fi
 
           if [[ -z "$source_file" ]]; then
-            cat <<EOF > "${target_dir}/results.json"
-            {
-              "stats": {
-                "total": 1,
-                "passed": 0,
-                "failures": 1
-              },
-              "results": [
-                {
-                  "pass": false,
-                  "error": "promptfoo results output missing"
-                }
-              ]
-            }
-            EOF
+            jq -n '{"stats":{"total":1,"passed":0,"failures":1},"results":[{"pass":false,"error":"promptfoo results output missing"}]}' \
+              > "${target_dir}/results.json"
             exit 0
           fi
 
@@ -353,6 +340,8 @@ jobs:
     runs-on: ubuntu-latest
     needs: [skill-lint-oasf-validation, skill-unit-eval-summary]
     if: ${{ (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && needs.skill-lint-oasf-validation.result == 'success' && needs.skill-lint-oasf-validation.outputs.eval_skills != '[]' && needs.skill-unit-eval-summary.result == 'success' }}
+    env:
+      HAS_DRIFT_TOKEN: ${{ secrets.ARIA_REPO_ISSUE_TOKEN != '' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -389,7 +378,7 @@ jobs:
           retention-days: 30
 
       - name: Open cross-repo drift issue
-        if: steps.drift.outputs.drift_detected == 'true' && secrets.ARIA_REPO_ISSUE_TOKEN != ''
+        if: steps.drift.outputs.drift_detected == 'true' && env.HAS_DRIFT_TOKEN == 'true'
         uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.ARIA_REPO_ISSUE_TOKEN }}
@@ -436,7 +425,7 @@ jobs:
             core.info(`Created drift issue: ${created.data.html_url}`);
 
       - name: Warn when drift issue token is missing
-        if: steps.drift.outputs.drift_detected == 'true' && secrets.ARIA_REPO_ISSUE_TOKEN == ''
+        if: steps.drift.outputs.drift_detected == 'true' && env.HAS_DRIFT_TOKEN == 'false'
         run: echo "::warning::Detected drift but ARIA_REPO_ISSUE_TOKEN is not set; unable to create cross-repo issue."
 
   skill-unit-eval-regression-gate:
