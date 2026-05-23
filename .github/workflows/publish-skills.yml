@@ -12,13 +12,15 @@ on:
       - 'agents/gateway-contract-drift-reviewer/mcp-config.json'
 
 permissions:
-  contents: write
+  contents: read
   packages: write
 
 jobs:
   detect-changes:
     name: Detect changed skills
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     outputs:
       skills: ${{ steps.changes.outputs.skills }}
       publishable_skills: ${{ steps.publishable.outputs.publishable_skills }}
