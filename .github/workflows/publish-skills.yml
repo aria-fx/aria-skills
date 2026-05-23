@@ -72,14 +72,14 @@ jobs:
     name: Publish ${{ matrix.skill }}
     runs-on: ubuntu-latest
     needs: detect-changes
-    if: needs.detect-changes.outputs.publishable_skills != '[]'
+    if: needs.detect-changes.outputs.skills != '[]'
     permissions:
       id-token: write
       contents: read
       packages: write
     strategy:
       matrix:
-        skill: ${{ fromJson(needs.detect-changes.outputs.publishable_skills) }}
+        skill: ${{ fromJson(needs.detect-changes.outputs.skills) }}
 
     steps:
       - uses: actions/checkout@v4
@@ -160,6 +160,7 @@ jobs:
           echo "Published ${IMAGE}:${TAG}"
 
       - name: Install MCP Publisher marketplace action
+        if: ${{ hashFiles(format('skills/{0}/mcp-manifest.json', matrix.skill)) != '' }}
         run: |
           MCP_PUBLISHER_VERSION="v0.7.0"
           OS="$(uname -s | tr '[:upper:]' '[:lower:]')"
@@ -171,9 +172,11 @@ jobs:
           tar xzf "${ARCHIVE}" mcp-publisher
 
       - name: Authenticate MCP Publisher marketplace action
+        if: ${{ hashFiles(format('skills/{0}/mcp-manifest.json', matrix.skill)) != '' }}
         run: ./mcp-publisher login github-oidc
 
       - name: Publish MCP Server marketplace action
+        if: ${{ hashFiles(format('skills/{0}/mcp-manifest.json', matrix.skill)) != '' }}
         working-directory: skills/${{ matrix.skill }}
         run: ../../mcp-publisher publish ./mcp-manifest.json
 
