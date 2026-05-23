@@ -32,10 +32,10 @@ jobs:
 
       - name: Detect changed skill directories
         id: changes
-        run: |
-          CHANGED=$(git diff --name-only HEAD~1 HEAD | grep '^skills/' | cut -d/ -f2 | sort -u | jq -R -s -c 'split("\n") | map(select(. != ""))')
-          echo "skills=$CHANGED" >> $GITHUB_OUTPUT
-          echo "Changed skills: $CHANGED"
+        env:
+          BASE_SHA: ${{ github.event.before }}
+          HEAD_SHA: ${{ github.sha }}
+        run: bash .github/scripts/detect-changed-skills.sh
 
   publish-skill:
     name: Publish ${{ matrix.skill }}
