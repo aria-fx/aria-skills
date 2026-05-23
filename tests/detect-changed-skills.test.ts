@@ -12,6 +12,7 @@ const bumpSkillVersionScriptPath = path.resolve(process.cwd(), ".github/scripts/
 const filterPublishableSkillsScriptPath = path.resolve(process.cwd(), ".github/scripts/filter-publishable-skills.sh");
 const compareEvalSummaryScriptPath = path.resolve(process.cwd(), ".github/scripts/compare-eval-summary.mjs");
 const summarizeEvalResultsScriptPath = path.resolve(process.cwd(), ".github/scripts/summarize-eval-results.mjs");
+const detectModelDriftScriptPath = path.resolve(process.cwd(), ".github/scripts/detect-model-drift.mjs");
 const tempRepos: string[] = [];
 
 function run(command: string, cwd: string): string {
@@ -367,5 +368,112 @@ describe("summarize-eval-results.mjs", () => {
     const markdown = readFileSync(path.join(repoDir, "eval-summary.md"), "utf8");
     expect(markdown).toContain("### Multi-Model Eval Scoreboard");
     expect(markdown).toContain("**gpt-4o-mini ← optimal**");
+  });
+});
+
+describe("detect-model-drift.mjs", () => {
+  it("flags drift when optimal model changes or pass rate drops more than threshold", () => {
+    const repoDir = mkdtempSync(path.join(tmpdir(), "skill-model-drift-detect-"));
+    tempRepos.push(repoDir);
+
+    const baselineRoot = path.join(repoDir, "baseline", "skills");
+    const currentRoot = path.join(repoDir, "current", "skills");
+    mkdirSync(path.join(baselineRoot, "aria-skill-alpha"), { recursive: true });
+    mkdirSync(path.join(currentRoot, "aria-skill-alpha"), { recursive: true });
+
+    writeFileSync(
+      path.join(baselineRoot, "aria-skill-alpha", "model-affinity.json"),
+      JSON.stringify({
+        optimalModel: "gpt-4o-mini",
+        scoreboard: [{ model: "gpt-4o-mini", passRate: 95, avgTokens: 100 }]
+      }, null, 2)
+    );
+    writeFileSync(
+      path.join(currentRoot, "aria-skill-alpha", "model-affinity.json"),
+      JSON.stringify({
+        optimalModel: "claude-sonnet-4",
+        scoreboard: [{ model: "claude-sonnet-4", passRate: 90, avgTokens: 105 }]
+      }, null, 2)
+    );
+
+    const githubOutput = path.join(repoDir, "github-output.txt");
+    execFileSync("node", [detectModelDriftScriptPath], {
+      cwd: repoDir,
+      env: {
+        ...process.env,
+        BASELINE_AFFINITY_ROOT: baselineRoot,
+        CURRENT_AFFINITY_ROOT: currentRoot,
+        DRIFT_MAX_PASS_RATE_DROP: "3",
+        DRIFT_REPORT_JSON: path.join(repoDir, "drift-report.json"),
+        DRIFT_REPORT_MARKDOWN: path.join(repoDir, "drift-report.md"),
+        GITHUB_OUTPUT: githubOutput
+      },
+      encoding: "utf8"
+    });
+
+    const report = JSON.parse(readFileSync(path.join(repoDir, "drift-report.json"), "utf8")) as {
+      driftDetected: boolean;
+      affectedSkills: Array<{ skill: string; optimalModelChanged: boolean; passRateDropped: boolean }>;
+    };
+    expect(report.driftDetected).toBe(true);
+    expect(report.affectedSkills).toHaveLength(1);
+    expect(report.affectedSkills[0]).toMatchObject({
+      skill: "aria-skill-alpha",
+      optimalModelChanged: true,
+      passRateDropped: true
+    });
+
+    const markdown = readFileSync(path.join(repoDir, "drift-report.md"), "utf8");
+    expect(markdown).toContain("| aria-skill-alpha | gpt-4o-mini | claude-sonnet-4 | 95% | 90% | 5 |");
+    expect(readFileSync(githubOutput, "utf8")).toContain("drift_detected=true");
+  });
+
+  it("does not flag drift when pass rate drop is within threshold and optimal model remains same", () => {
+    const repoDir = mkdtempSync(path.join(tmpdir(), "skill-model-drift-none-"));
+    tempRepos.push(repoDir);
+
+    const baselineRoot = path.join(repoDir, "baseline", "skills");
+    const currentRoot = path.join(repoDir, "current", "skills");
+    mkdirSync(path.join(baselineRoot, "aria-skill-alpha"), { recursive: true });
+    mkdirSync(path.join(currentRoot, "aria-skill-alpha"), { recursive: true });
+
+    writeFileSync(
+      path.join(baselineRoot, "aria-skill-alpha", "model-affinity.json"),
+      JSON.stringify({
+        optimalModel: "gpt-4o-mini",
+        scoreboard: [{ model: "gpt-4o-mini", passRate: 95, avgTokens: 100 }]
+      }, null, 2)
+    );
+    writeFileSync(
+      path.join(currentRoot, "aria-skill-alpha", "model-affinity.json"),
+      JSON.stringify({
+        optimalModel: "gpt-4o-mini",
+        scoreboard: [{ model: "gpt-4o-mini", passRate: 93, avgTokens: 105 }]
+      }, null, 2)
+    );
+
+    const githubOutput = path.join(repoDir, "github-output.txt");
+    const output = execFileSync("node", [detectModelDriftScriptPath], {
+      cwd: repoDir,
+      env: {
+        ...process.env,
+        BASELINE_AFFINITY_ROOT: baselineRoot,
+        CURRENT_AFFINITY_ROOT: currentRoot,
+        DRIFT_MAX_PASS_RATE_DROP: "3",
+        DRIFT_REPORT_JSON: path.join(repoDir, "drift-report.json"),
+        DRIFT_REPORT_MARKDOWN: path.join(repoDir, "drift-report.md"),
+        GITHUB_OUTPUT: githubOutput
+      },
+      encoding: "utf8"
+    });
+
+    expect(output).toContain("No model drift detected.");
+    const report = JSON.parse(readFileSync(path.join(repoDir, "drift-report.json"), "utf8")) as {
+      driftDetected: boolean;
+      affectedSkills: Array<unknown>;
+    };
+    expect(report.driftDetected).toBe(false);
+    expect(report.affectedSkills).toEqual([]);
+    expect(readFileSync(githubOutput, "utf8")).toContain("drift_detected=false");
   });
 });
