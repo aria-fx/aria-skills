@@ -54,6 +54,18 @@
       "oasf_ref": "aria.dev/agents/gateway-contract-drift-reviewer@1.0.0",
       "mcp_config": "../agents/gateway-contract-drift-reviewer/mcp-config.json",
       "required_servers": ["aria-validate", "aria-catalog", "aria-scaffold"]
+    },
+    "skill-lifecycle-reviewer": {
+      "oasf_ref": "aria.dev/agents/skill-lifecycle-reviewer@1.0.0",
+      "mcp_config": "../agents/skill-lifecycle-reviewer/mcp-config.json",
+      "required_servers": [
+        "aria-scaffold",
+        "aria-validate",
+        "aria-publish",
+        "aria-dependency-scan",
+        "aria-purview-sync",
+        "aria-catalog"
+      ]
     }
   }
 }
