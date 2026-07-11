@@ -28,7 +28,12 @@ interface OasfGovernance {
 describe("Agent Integration Tests", () => {
   const agentsDir = path.resolve(__dirname, "../agents");
   const orchestratorDir = path.resolve(__dirname, "../orchestrator");
-  const agents = ["aria-super", "gateway-contract-drift-reviewer", "skill-lifecycle-reviewer"];
+  const agents = [
+    "aria-super",
+    "gateway-contract-drift-reviewer",
+    "skill-lifecycle-reviewer",
+    "provider-usage-evaluator",
+  ];
 
   describe("Agent Manifests", () => {
     it.each(agents)("%s agent has valid OASF record", async (agentName) => {
@@ -146,6 +151,24 @@ describe("Agent Integration Tests", () => {
 
       expect(refs).toEqual(expectedSkills);
     });
+
+    it("provider-usage-evaluator references exactly the 4 usage skills", async () => {
+      const recordPath = path.join(agentsDir, "provider-usage-evaluator", "oasf-record.json");
+      const content = await fs.readFile(recordPath, "utf-8");
+      const record: OasfRecord = JSON.parse(content);
+
+      const refs = record.modules
+        .filter((m) => m.type === "mcp_server")
+        .map((m) => m.ref)
+        .sort();
+
+      expect(refs).toEqual([
+        "aria.dev/skills/usage-conformance",
+        "aria.dev/skills/usage-eval-metrics",
+        "aria.dev/skills/usage-ingest-normalize",
+        "aria.dev/skills/usage-reporting",
+      ]);
+    });
   });
 
   describe("Agent Governance", () => {
@@ -248,6 +271,54 @@ describe("Agent Integration Tests", () => {
         "aria-purview-sync",
         "aria-scaffold",
         "aria-validate",
+      ]);
+
+      const agentConfigPath = path.join(orchestratorDir, composition!.mcp_config);
+      const agentConfigContent = await fs.readFile(agentConfigPath, "utf-8");
+      const agentConfig = JSON.parse(agentConfigContent) as {
+        mcpServers: Record<string, { metadata?: { oasf_ref?: string } }>;
+      };
+
+      composition?.required_servers.forEach((serverName) => {
+        expect(orchestratorConfig.mcpServers[serverName]).toBeDefined();
+        expect(agentConfig.mcpServers[serverName]).toBeDefined();
+      });
+
+      const orchestratorRefs = Object.values(orchestratorConfig.mcpServers)
+        .map((srv) => srv.metadata?.oasf_ref?.split("@")[0])
+        .filter(Boolean);
+      const agentRefs = Object.values(agentConfig.mcpServers)
+        .map((srv) => srv.metadata?.oasf_ref?.split("@")[0])
+        .filter(Boolean);
+
+      agentRefs.forEach((ref) => {
+        expect(orchestratorRefs).toContain(ref);
+      });
+    });
+
+    it("orchestrator wires provider-usage-evaluator tools", async () => {
+      const orchestratorConfigPath = path.join(orchestratorDir, "mcp-config.json");
+      const orchestratorConfigContent = await fs.readFile(orchestratorConfigPath, "utf-8");
+      const orchestratorConfig = JSON.parse(orchestratorConfigContent) as {
+        mcpServers: Record<string, { metadata?: { oasf_ref?: string } }>;
+        agentCompositions?: Record<
+          string,
+          {
+            oasf_ref: string;
+            mcp_config: string;
+            required_servers: string[];
+          }
+        >;
+      };
+
+      const composition = orchestratorConfig.agentCompositions?.["provider-usage-evaluator"];
+      expect(composition).toBeDefined();
+      expect(composition?.oasf_ref).toBe("aria.dev/agents/provider-usage-evaluator@1.0.0");
+      expect([...composition!.required_servers].sort()).toEqual([
+        "aria-usage-conformance",
+        "aria-usage-eval-metrics",
+        "aria-usage-ingest-normalize",
+        "aria-usage-reporting",
       ]);
 
       const agentConfigPath = path.join(orchestratorDir, composition!.mcp_config);
@@ -408,6 +479,103 @@ describe("Agent Integration Tests", () => {
       expect(tiers.indexOf(governance.dependency_sensitivity_ceiling)).toBeGreaterThanOrEqual(
         maxDependencyTier
       );
+      expect(governance.audit_level).toBe("full");
+      expect(governance.approval_chain).toContain("ai-governance");
+    });
+  });
+
+  describe("Provider Usage Evaluator E2E", () => {
+    it("keeps provider usage evaluator manifest, catalog, and MCP wiring aligned", async () => {
+      const [recordContent, orchestratorContent, agentConfigContent, catalogContent] =
+        await Promise.all([
+          fs.readFile(path.join(agentsDir, "provider-usage-evaluator", "oasf-record.json"), "utf-8"),
+          fs.readFile(path.join(orchestratorDir, "mcp-config.json"), "utf-8"),
+          fs.readFile(path.join(agentsDir, "provider-usage-evaluator", "mcp-config.json"), "utf-8"),
+          fs.readFile(path.join(orchestratorDir, "agents-catalog.json"), "utf-8"),
+        ]);
+
+      const record = JSON.parse(recordContent) as OasfRecord;
+      const orchestratorConfig = JSON.parse(orchestratorContent) as {
+        mcpServers: Record<string, { metadata?: { oasf_ref?: string } }>;
+        agentCompositions?: Record<
+          string,
+          {
+            mcp_config: string;
+            required_servers: string[];
+          }
+        >;
+      };
+      const agentConfig = JSON.parse(agentConfigContent) as {
+        mcpServers: Record<string, { metadata?: { oasf_ref?: string } }>;
+      };
+      const catalog = JSON.parse(catalogContent) as {
+        agents: Record<string, { name: string; version: string; state: string }>;
+      };
+
+      const composition = orchestratorConfig.agentCompositions?.["provider-usage-evaluator"];
+      expect(composition).toBeDefined();
+
+      // Agent manifest skill refs match the agent's own MCP wiring
+      const declaredRefs = record.modules
+        .filter((module) => module.type === "mcp_server")
+        .map((module) => module.ref)
+        .sort();
+
+      const agentRefs = Object.values(agentConfig.mcpServers)
+        .map((srv) => srv.metadata?.oasf_ref?.split("@")[0])
+        .filter(Boolean)
+        .sort();
+
+      expect(agentRefs).toEqual(declaredRefs);
+
+      // Every required server is resolvable via the orchestrator
+      composition?.required_servers.forEach((serverName) => {
+        expect(orchestratorConfig.mcpServers[serverName]).toBeDefined();
+        expect(agentConfig.mcpServers[serverName]).toBeDefined();
+      });
+
+      // Catalog entry matches the manifest
+      const catalogEntry = catalog.agents["provider-usage-evaluator"];
+      expect(catalogEntry).toBeDefined();
+      expect(catalogEntry.name).toBe(record.name);
+      expect(catalogEntry.version).toBe(record.version);
+      expect(catalogEntry.state).toBe("published");
+    });
+
+    it("enforces governance requirements across the usage evaluation bundle", async () => {
+      const govContent = await fs.readFile(
+        path.join(agentsDir, "provider-usage-evaluator", "oasf-governance.json"),
+        "utf-8"
+      );
+      const { governance } = JSON.parse(govContent) as OasfGovernanceFile & {
+        governance: OasfGovernance & { dependency_sensitivity_ceiling: string; audit_level: string };
+      };
+
+      // Dependency ceiling must cover the most sensitive wired skills
+      // (all four usage skills are confidential in the orchestrator)
+      const tiers = ["public", "internal", "confidential", "highly_confidential"];
+      const orchestratorContent = await fs.readFile(
+        path.join(orchestratorDir, "mcp-config.json"),
+        "utf-8"
+      );
+      const orchestratorConfig = JSON.parse(orchestratorContent) as {
+        mcpServers: Record<string, { metadata?: { sensitivity_tier?: string } }>;
+        agentCompositions?: Record<string, { required_servers: string[] }>;
+      };
+
+      const requiredServers =
+        orchestratorConfig.agentCompositions?.["provider-usage-evaluator"]?.required_servers ?? [];
+      expect(requiredServers.length).toBe(4);
+      const maxDependencyTier = Math.max(
+        ...requiredServers.map((name) =>
+          tiers.indexOf(orchestratorConfig.mcpServers[name]?.metadata?.sensitivity_tier ?? "public")
+        )
+      );
+
+      expect(tiers.indexOf(governance.dependency_sensitivity_ceiling)).toBeGreaterThanOrEqual(
+        maxDependencyTier
+      );
+      expect(governance.sensitivity_tier).toBe("confidential");
       expect(governance.audit_level).toBe("full");
       expect(governance.approval_chain).toContain("ai-governance");
     });

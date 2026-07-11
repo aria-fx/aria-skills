@@ -29,6 +29,16 @@
       "mcp_config": "../agents/skill-lifecycle-reviewer/mcp-config.json",
       "state": "published",
       "published_at": "2026-05-10T16:30:00Z"
+    },
+    "provider-usage-evaluator": {
+      "name": "aria.dev/agents/provider-usage-evaluator",
+      "version": "1.0.0",
+      "description": "LLM provider and cloud usage evaluation agent: ingest, normalize, metrics, conformance, reporting",
+      "oasf_record": "../agents/provider-usage-evaluator/oasf-record.json",
+      "oasf_governance": "../agents/provider-usage-evaluator/oasf-governance.json",
+      "mcp_config": "../agents/provider-usage-evaluator/mcp-config.json",
+      "state": "published",
+      "published_at": "2026-07-11T00:00:00Z"
     }
   }
 }

@@ -489,6 +489,10 @@ jobs:
           - aria-skill-publish
           - aria-skill-purview-sync
           - aria-skill-scaffold
+          - aria-skill-usage-conformance
+          - aria-skill-usage-eval-metrics
+          - aria-skill-usage-ingest-normalize
+          - aria-skill-usage-reporting
           - aria-skill-validate
 
     steps:

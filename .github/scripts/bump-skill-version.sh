@@ -37,6 +37,14 @@ while IFS= read -r skill_name; do
 
   printf '%s\n' "$next_version" > "$version_file"
 
+  for manifest in oasf-record.json oasf-manifest.json; do
+    manifest_path="${skill_dir}/${manifest}"
+    if [[ -f "$manifest_path" ]]; then
+      jq --arg version "$next_version" '.version = $version' "$manifest_path" > "${manifest_path}.tmp"
+      mv "${manifest_path}.tmp" "$manifest_path"
+    fi
+  done
+
   versions="$(jq -c --arg skill "$skill_name" --arg version "$next_version" '. + {($skill): $version}' <<< "$versions")"
   bumped_skills="$(jq -c --arg skill "$skill_name" '. + [$skill]' <<< "$bumped_skills")"
 done < <(jq -r '.[]' <<< "$CHANGED_SKILLS")

@@ -13,6 +13,10 @@ on:
       - 'agents/skill-lifecycle-reviewer/oasf-record.json'
       - 'agents/skill-lifecycle-reviewer/oasf-governance.json'
       - 'agents/skill-lifecycle-reviewer/mcp-config.json'
+      - 'agents/provider-usage-evaluator/oasf-record.json'
+      - 'agents/provider-usage-evaluator/oasf-governance.json'
+      - 'agents/provider-usage-evaluator/mcp-config.json'
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -53,14 +57,14 @@ jobs:
         if: steps.bump.outputs.bumped_skills != '[]'
         run: |
           set -euo pipefail
-          if git diff --quiet -- skills/*/version.txt; then
-            echo "No version.txt changes to commit."
+          if git diff --quiet -- skills/*/version.txt skills/*/oasf-record.json skills/*/oasf-manifest.json; then
+            echo "No version bump changes to commit."
             exit 0
           fi
 
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add skills/*/version.txt
+          git add skills/*/version.txt skills/*/oasf-record.json skills/*/oasf-manifest.json
           git commit -m "ci: bump skill versions [skip ci]"
           git push origin HEAD:main
 
@@ -109,12 +113,14 @@ jobs:
           NAME=$(jq -r '.name' "$RECORD_PATH" | tr '/' '-')
           MAPPED_VERSION=$(jq -r --arg skill "${{ matrix.skill }}" '.[$skill] // empty' <<< "$SKILL_VERSION_MAP")
 
-          if [[ -n "$MAPPED_VERSION" && "$MAPPED_VERSION" != "$VERSION" ]]; then
-            echo "Version mismatch for ${{ matrix.skill }}: detect-changes reported '$MAPPED_VERSION' but $RECORD_PATH contains '$VERSION'." >&2
-            exit 1
+          # The bumped version map is authoritative for the OCI tag: this job
+          # checks out the pre-bump SHA, so the record on disk may lag one patch.
+          TAG="${MAPPED_VERSION:-$VERSION}"
+          if [[ "$TAG" != "$VERSION" ]]; then
+            echo "Using bumped version '$TAG' from detect-changes (record on this SHA has '$VERSION')."
           fi
 
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "version=$TAG" >> $GITHUB_OUTPUT
           echo "name=$NAME" >> $GITHUB_OUTPUT
 
       - name: Validate OASF Record
@@ -334,6 +340,72 @@ jobs:
           IMAGE="ghcr.io/${{ github.repository_owner }}/agents/gateway-contract-drift-reviewer"
           TAG="${{ steps.oasf.outputs.version }}"
           cd agents/gateway-contract-drift-reviewer
+          echo "FROM scratch" > Dockerfile
+          echo "COPY oasf-record.json /oasf-record.json" >> Dockerfile
+          echo "COPY oasf-governance.json /oasf-governance.json" >> Dockerfile
+          echo "COPY mcp-config.json /mcp-config.json" >> Dockerfile
+          docker build -t "${IMAGE}:${TAG}" -t "${IMAGE}:latest" .
+          docker push "${IMAGE}:${TAG}"
+          docker push "${IMAGE}:latest"
+          echo "Published ${IMAGE}:${TAG}"
+
+  publish-provider-usage-evaluator:
+    name: Publish provider-usage-evaluator
+    runs-on: ubuntu-latest
+    needs: publish-orchestrator
+    if: ${{ always() && needs.publish-orchestrator.result != 'failure' && needs.publish-orchestrator.result != 'cancelled' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Read provider-usage-evaluator version
+        id: oasf
+        run: |
+          VERSION=$(jq -r '.version' agents/provider-usage-evaluator/oasf-record.json)
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Validate provider-usage-evaluator manifests
+        run: |
+          node -e "
+          const fs = require('fs');
+          const record = JSON.parse(fs.readFileSync('agents/provider-usage-evaluator/oasf-record.json'));
+          const gov = JSON.parse(fs.readFileSync('agents/provider-usage-evaluator/oasf-governance.json'));
+          const required = ['name','version','schema_version','skills','locators','authors','modules'];
+          const missing = required.filter(f => !record[f]);
+          if (missing.length) { console.error('Missing:', missing); process.exit(1); }
+          const g = gov.governance;
+          if (!g) { console.error('Missing governance block'); process.exit(1); }
+          const tiers = ['public','internal','confidential','highly_confidential','restricted'];
+          if (!tiers.includes(g.sensitivity_tier)) { console.error('Bad tier:', g.sensitivity_tier); process.exit(1); }
+          if (!Array.isArray(g.allowed_consumers) || !g.allowed_consumers.includes('all-employees')) {
+            console.error('Expected all-employees in allowed_consumers'); process.exit(1);
+          }
+          if (!Array.isArray(g.compliance_frameworks) || !g.compliance_frameworks.includes('SOC2')) {
+            console.error('Expected SOC2 compliance framework'); process.exit(1);
+          }
+          const expectedSkills = [
+            'aria.dev/skills/usage-conformance',
+            'aria.dev/skills/usage-eval-metrics',
+            'aria.dev/skills/usage-ingest-normalize',
+            'aria.dev/skills/usage-reporting'
+          ];
+          const refs = record.modules.filter(m => m.type === 'mcp_server').map(m => m.ref).sort();
+          const missingSkills = expectedSkills.filter(s => !refs.includes(s));
+          if (missingSkills.length) { console.error('Missing skill modules:', missingSkills); process.exit(1); }
+          console.log('✓ Validation passed:', record.name, 'v'+record.version);
+          "
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Package and push provider-usage-evaluator
+        run: |
+          IMAGE="ghcr.io/${{ github.repository_owner }}/agents/provider-usage-evaluator"
+          TAG="${{ steps.oasf.outputs.version }}"
+          cd agents/provider-usage-evaluator
           echo "FROM scratch" > Dockerfile
           echo "COPY oasf-record.json /oasf-record.json" >> Dockerfile
           echo "COPY oasf-governance.json /oasf-governance.json" >> Dockerfile

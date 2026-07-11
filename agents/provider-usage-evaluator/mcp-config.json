@@ -1,0 +1,36 @@
+{
+  "mcpServers": {
+    "aria-usage-ingest-normalize": {
+      "command": "node",
+      "args": ["../../skills/aria-skill-usage-ingest-normalize/server.mjs"],
+      "metadata": {
+        "oasf_ref": "aria.dev/skills/usage-ingest-normalize@1.0.0",
+        "installed_via": "apm install ghcr.io/aria-fx/aria-skills/usage-ingest-normalize:1.0.0"
+      }
+    },
+    "aria-usage-eval-metrics": {
+      "command": "node",
+      "args": ["../../skills/aria-skill-usage-eval-metrics/server.mjs"],
+      "metadata": {
+        "oasf_ref": "aria.dev/skills/usage-eval-metrics@1.0.0",
+        "installed_via": "apm install ghcr.io/aria-fx/aria-skills/usage-eval-metrics:1.0.0"
+      }
+    },
+    "aria-usage-conformance": {
+      "command": "node",
+      "args": ["../../skills/aria-skill-usage-conformance/server.mjs"],
+      "metadata": {
+        "oasf_ref": "aria.dev/skills/usage-conformance@1.0.0",
+        "installed_via": "apm install ghcr.io/aria-fx/aria-skills/usage-conformance:1.0.0"
+      }
+    },
+    "aria-usage-reporting": {
+      "command": "node",
+      "args": ["../../skills/aria-skill-usage-reporting/server.mjs"],
+      "metadata": {
+        "oasf_ref": "aria.dev/skills/usage-reporting@1.0.0",
+        "installed_via": "apm install ghcr.io/aria-fx/aria-skills/usage-reporting:1.0.0"
+      }
+    }
+  }
+}

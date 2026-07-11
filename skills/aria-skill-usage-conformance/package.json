@@ -1,0 +1,15 @@
+{
+  "name": "@aria/skill-usage-conformance",
+  "version": "1.0.0",
+  "description": "ARIA skill: governance conformance and budget policy checks over normalized usage data",
+  "type": "module",
+  "main": "server.mjs",
+  "bin": { "aria-skill-usage-conformance": "server.mjs" },
+  "scripts": {
+    "start": "node server.mjs",
+    "test": "node ../../scripts/run-node-test-coverage.mjs tests/"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.0"
+  }
+}
