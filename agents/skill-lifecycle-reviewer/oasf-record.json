@@ -54,7 +54,7 @@
     },
     {
       "type": "oci_artifact",
-      "urls": ["ghcr.io/aria-fx/aria-skills/skill-lifecycle-reviewer:1.0.0"]
+      "urls": ["ghcr.io/aria-fx/agents/skill-lifecycle-reviewer:1.0.0"]
     }
   ],
   "authors": ["Josh Garverick <josh.garverick@xebia.com>"],

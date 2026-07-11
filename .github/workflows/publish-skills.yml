@@ -10,6 +10,9 @@ on:
       - 'agents/gateway-contract-drift-reviewer/oasf-record.json'
       - 'agents/gateway-contract-drift-reviewer/oasf-governance.json'
       - 'agents/gateway-contract-drift-reviewer/mcp-config.json'
+      - 'agents/skill-lifecycle-reviewer/oasf-record.json'
+      - 'agents/skill-lifecycle-reviewer/oasf-governance.json'
+      - 'agents/skill-lifecycle-reviewer/mcp-config.json'
 
 permissions:
   contents: read
@@ -167,7 +170,7 @@ jobs:
           ARCH="$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/')"
           ARCHIVE="mcp-publisher_${OS}_${ARCH}.tar.gz"
           URL="https://github.com/modelcontextprotocol/registry/releases/download/${MCP_PUBLISHER_VERSION}/${ARCHIVE}"
-
+
           curl --fail --silent --show-error --location --output "${ARCHIVE}" "${URL}"
           tar xzf "${ARCHIVE}" mcp-publisher
 
@@ -215,7 +218,73 @@ jobs:
           docker push "${IMAGE}:latest"
           echo "Published ${IMAGE}:${TAG}"
 
-  publish-gateway-contract-drift-reviewer:
+  publish-skill-lifecycle-reviewer:
+    name: Publish skill-lifecycle-reviewer
+    runs-on: ubuntu-latest
+    needs: publish-orchestrator
+    if: ${{ always() && needs.publish-orchestrator.result != 'failure' && needs.publish-orchestrator.result != 'cancelled' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Read skill-lifecycle-reviewer version
+        id: oasf
+        run: |
+          VERSION=$(jq -r '.version' agents/skill-lifecycle-reviewer/oasf-record.json)
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Validate skill-lifecycle-reviewer manifests
+        run: |
+          node -e "
+          const fs = require('fs');
+          const record = JSON.parse(fs.readFileSync('agents/skill-lifecycle-reviewer/oasf-record.json'));
+          const gov = JSON.parse(fs.readFileSync('agents/skill-lifecycle-reviewer/oasf-governance.json'));
+          const required = ['name','version','schema_version','skills','locators','authors','modules'];
+          const missing = required.filter(f => !record[f]);
+          if (missing.length) { console.error('Missing:', missing); process.exit(1); }
+          const g = gov.governance;
+          if (!g) { console.error('Missing governance block'); process.exit(1); }
+          const tiers = ['public','internal','confidential','highly_confidential','restricted'];
+          if (!tiers.includes(g.sensitivity_tier)) { console.error('Bad tier:', g.sensitivity_tier); process.exit(1); }
+          if (!Array.isArray(g.allowed_consumers) || !g.allowed_consumers.includes('all-employees')) {
+            console.error('Expected all-employees in allowed_consumers'); process.exit(1);
+          }
+          if (!Array.isArray(g.compliance_frameworks) || !g.compliance_frameworks.includes('SOC2')) {
+            console.error('Expected SOC2 compliance framework'); process.exit(1);
+          }
+          const expectedSkills = [
+            'aria.dev/skills/catalog',
+            'aria.dev/skills/dependency-scan',
+            'aria.dev/skills/publish',
+            'aria.dev/skills/purview-sync',
+            'aria.dev/skills/scaffold',
+            'aria.dev/skills/validate'
+          ];
+          const refs = record.modules.filter(m => m.type === 'mcp_server').map(m => m.ref).sort();
+          const missingSkills = expectedSkills.filter(s => !refs.includes(s));
+          if (missingSkills.length) { console.error('Missing skill modules:', missingSkills); process.exit(1); }
+          console.log('✓ Validation passed:', record.name, 'v'+record.version);
+          "
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Package and push skill-lifecycle-reviewer
+        run: |
+          IMAGE="ghcr.io/${{ github.repository_owner }}/agents/skill-lifecycle-reviewer"
+          TAG="${{ steps.oasf.outputs.version }}"
+          cd agents/skill-lifecycle-reviewer
+          echo "FROM scratch" > Dockerfile
+          echo "COPY oasf-record.json /oasf-record.json" >> Dockerfile
+          echo "COPY oasf-governance.json /oasf-governance.json" >> Dockerfile
+          echo "COPY mcp-config.json /mcp-config.json" >> Dockerfile
+          docker build -t "${IMAGE}:${TAG}" -t "${IMAGE}:latest" .
+          docker push "${IMAGE}:${TAG}"
+          docker push "${IMAGE}:latest"
+          echo "Published ${IMAGE}:${TAG}"
     name: Publish gateway-contract-drift-reviewer
     runs-on: ubuntu-latest
     needs: publish-orchestrator

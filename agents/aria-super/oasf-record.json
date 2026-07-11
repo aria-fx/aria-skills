@@ -53,7 +53,7 @@
     },
     {
       "type": "oci_artifact",
-      "urls": ["ghcr.io/aria-fx/aria-skills/aria-super:1.0.0"]
+      "urls": ["ghcr.io/aria-fx/agents/aria-super:1.0.0"]
     }
   ],
   "authors": ["Josh Garverick <josh.garverick@xebia.com>"],

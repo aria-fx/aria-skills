@@ -222,6 +222,56 @@ describe("Agent Integration Tests", () => {
         expect(orchestratorRefs).toContain(ref);
       });
     });
+
+    it("orchestrator wires skill-lifecycle-reviewer tools", async () => {
+      const orchestratorConfigPath = path.join(orchestratorDir, "mcp-config.json");
+      const orchestratorConfigContent = await fs.readFile(orchestratorConfigPath, "utf-8");
+      const orchestratorConfig = JSON.parse(orchestratorConfigContent) as {
+        mcpServers: Record<string, { metadata?: { oasf_ref?: string } }>;
+        agentCompositions?: Record<
+          string,
+          {
+            oasf_ref: string;
+            mcp_config: string;
+            required_servers: string[];
+          }
+        >;
+      };
+
+      const composition = orchestratorConfig.agentCompositions?.["skill-lifecycle-reviewer"];
+      expect(composition).toBeDefined();
+      expect(composition?.oasf_ref).toBe("aria.dev/agents/skill-lifecycle-reviewer@1.0.0");
+      expect([...composition!.required_servers].sort()).toEqual([
+        "aria-catalog",
+        "aria-dependency-scan",
+        "aria-publish",
+        "aria-purview-sync",
+        "aria-scaffold",
+        "aria-validate",
+      ]);
+
+      const agentConfigPath = path.join(orchestratorDir, composition!.mcp_config);
+      const agentConfigContent = await fs.readFile(agentConfigPath, "utf-8");
+      const agentConfig = JSON.parse(agentConfigContent) as {
+        mcpServers: Record<string, { metadata?: { oasf_ref?: string } }>;
+      };
+
+      composition?.required_servers.forEach((serverName) => {
+        expect(orchestratorConfig.mcpServers[serverName]).toBeDefined();
+        expect(agentConfig.mcpServers[serverName]).toBeDefined();
+      });
+
+      const orchestratorRefs = Object.values(orchestratorConfig.mcpServers)
+        .map((srv) => srv.metadata?.oasf_ref?.split("@")[0])
+        .filter(Boolean);
+      const agentRefs = Object.values(agentConfig.mcpServers)
+        .map((srv) => srv.metadata?.oasf_ref?.split("@")[0])
+        .filter(Boolean);
+
+      agentRefs.forEach((ref) => {
+        expect(orchestratorRefs).toContain(ref);
+      });
+    });
   });
 
   describe("Gateway Contract Drift Reviewer E2E", () => {
@@ -265,6 +315,101 @@ describe("Agent Integration Tests", () => {
         expect(orchestratorConfig.mcpServers[serverName]).toBeDefined();
         expect(gatewayConfig.mcpServers[serverName]).toBeDefined();
       });
+    });
+  });
+
+  describe("Skill Lifecycle Reviewer E2E", () => {
+    it("keeps skill lifecycle reviewer manifest, catalog, and MCP wiring aligned", async () => {
+      const [recordContent, orchestratorContent, agentConfigContent, catalogContent] =
+        await Promise.all([
+          fs.readFile(path.join(agentsDir, "skill-lifecycle-reviewer", "oasf-record.json"), "utf-8"),
+          fs.readFile(path.join(orchestratorDir, "mcp-config.json"), "utf-8"),
+          fs.readFile(path.join(agentsDir, "skill-lifecycle-reviewer", "mcp-config.json"), "utf-8"),
+          fs.readFile(path.join(orchestratorDir, "agents-catalog.json"), "utf-8"),
+        ]);
+
+      const record = JSON.parse(recordContent) as OasfRecord;
+      const orchestratorConfig = JSON.parse(orchestratorContent) as {
+        mcpServers: Record<string, { metadata?: { oasf_ref?: string } }>;
+        agentCompositions?: Record<
+          string,
+          {
+            mcp_config: string;
+            required_servers: string[];
+          }
+        >;
+      };
+      const agentConfig = JSON.parse(agentConfigContent) as {
+        mcpServers: Record<string, { metadata?: { oasf_ref?: string } }>;
+      };
+      const catalog = JSON.parse(catalogContent) as {
+        agents: Record<string, { name: string; version: string; state: string }>;
+      };
+
+      const composition = orchestratorConfig.agentCompositions?.["skill-lifecycle-reviewer"];
+      expect(composition).toBeDefined();
+
+      // Agent manifest skill refs match the agent's own MCP wiring
+      const declaredRefs = record.modules
+        .filter((module) => module.type === "mcp_server")
+        .map((module) => module.ref)
+        .sort();
+
+      const agentRefs = Object.values(agentConfig.mcpServers)
+        .map((srv) => srv.metadata?.oasf_ref?.split("@")[0])
+        .filter(Boolean)
+        .sort();
+
+      expect(agentRefs).toEqual(declaredRefs);
+
+      // Every required server is resolvable via the orchestrator
+      composition?.required_servers.forEach((serverName) => {
+        expect(orchestratorConfig.mcpServers[serverName]).toBeDefined();
+        expect(agentConfig.mcpServers[serverName]).toBeDefined();
+      });
+
+      // Catalog entry matches the manifest
+      const catalogEntry = catalog.agents["skill-lifecycle-reviewer"];
+      expect(catalogEntry).toBeDefined();
+      expect(catalogEntry.name).toBe(record.name);
+      expect(catalogEntry.version).toBe(record.version);
+      expect(catalogEntry.state).toBe("published");
+    });
+
+    it("enforces governance requirements across the skill lifecycle", async () => {
+      const govContent = await fs.readFile(
+        path.join(agentsDir, "skill-lifecycle-reviewer", "oasf-governance.json"),
+        "utf-8"
+      );
+      const { governance } = JSON.parse(govContent) as OasfGovernanceFile & {
+        governance: OasfGovernance & { dependency_sensitivity_ceiling: string; audit_level: string };
+      };
+
+      // Dependency ceiling must cover the most sensitive wired skills
+      // (dependency-scan and purview-sync are confidential in the orchestrator)
+      const tiers = ["public", "internal", "confidential", "highly_confidential"];
+      const orchestratorContent = await fs.readFile(
+        path.join(orchestratorDir, "mcp-config.json"),
+        "utf-8"
+      );
+      const orchestratorConfig = JSON.parse(orchestratorContent) as {
+        mcpServers: Record<string, { metadata?: { sensitivity_tier?: string } }>;
+        agentCompositions?: Record<string, { required_servers: string[] }>;
+      };
+
+      const requiredServers =
+        orchestratorConfig.agentCompositions?.["skill-lifecycle-reviewer"]?.required_servers ?? [];
+      const maxDependencyTier = Math.max(
+        ...requiredServers.map((name) =>
+          tiers.indexOf(orchestratorConfig.mcpServers[name]?.metadata?.sensitivity_tier ?? "public")
+        )
+      );
+
+      expect(tiers.indexOf(governance.dependency_sensitivity_ceiling)).toBeGreaterThanOrEqual(
+        maxDependencyTier
+      );
+      expect(governance.audit_level).toBe("full");
+      expect(governance.approval_chain).toContain("ai-governance");
     });
   });
 });
