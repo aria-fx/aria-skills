@@ -1,14 +1,22 @@
 {
   "name": "aria.dev/skills/usage-eval-metrics",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "schema_version": "1.0.0",
   "description": "Computes evaluation metrics over NormalizedUsageRecord data: cost, token, latency, and error aggregations grouped by provider, model, region, or tenant; period-over-period comparison; and anomaly detection for cost spikes, error rates, latency, and retries.",
   "skills": [
-    { "id": 40703, "name": "analytics/usage/metrics" },
-    { "id": 40704, "name": "analytics/usage/anomaly" }
+    {
+      "id": 40703,
+      "name": "analytics/usage/metrics"
+    },
+    {
+      "id": 40704,
+      "name": "analytics/usage/anomaly"
+    }
   ],
   "domains": [
-    { "name": "platform/aria/finops" }
+    {
+      "name": "platform/aria/finops"
+    }
   ],
   "modules": [
     {
@@ -24,13 +32,19 @@
   "locators": [
     {
       "type": "source_code",
-      "urls": ["https://github.com/aria-fx/aria-skills/tree/main/skills/aria-skill-usage-eval-metrics"]
+      "urls": [
+        "https://github.com/aria-fx/aria-skills/tree/main/skills/aria-skill-usage-eval-metrics"
+      ]
     },
     {
       "type": "oci_artifact",
-      "urls": ["ghcr.io/aria-fx/aria-skills/usage-eval-metrics:1.0.0"]
+      "urls": [
+        "ghcr.io/aria-fx/aria-skills/usage-eval-metrics:1.0.0"
+      ]
     }
   ],
-  "authors": ["Josh Garverick <josh.garverick@xebia.com>"],
+  "authors": [
+    "Josh Garverick <josh.garverick@xebia.com>"
+  ],
   "created_at": "2026-07-11T00:00:00Z"
 }

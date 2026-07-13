@@ -1,14 +1,22 @@
 {
   "name": "aria.dev/skills/usage-conformance",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "schema_version": "1.0.0",
   "description": "Checks NormalizedUsageRecord data against governance policies (allowed providers, models, regions, tenant attribution, cost confidence) and evaluates budget limits by provider, tenant, model family, or cloud service.",
   "skills": [
-    { "id": 40705, "name": "governance/usage/conformance" },
-    { "id": 40706, "name": "governance/usage/budget" }
+    {
+      "id": 40705,
+      "name": "governance/usage/conformance"
+    },
+    {
+      "id": 40706,
+      "name": "governance/usage/budget"
+    }
   ],
   "domains": [
-    { "name": "platform/aria/governance" }
+    {
+      "name": "platform/aria/governance"
+    }
   ],
   "modules": [
     {
@@ -24,13 +32,19 @@
   "locators": [
     {
       "type": "source_code",
-      "urls": ["https://github.com/aria-fx/aria-skills/tree/main/skills/aria-skill-usage-conformance"]
+      "urls": [
+        "https://github.com/aria-fx/aria-skills/tree/main/skills/aria-skill-usage-conformance"
+      ]
     },
     {
       "type": "oci_artifact",
-      "urls": ["ghcr.io/aria-fx/aria-skills/usage-conformance:1.0.0"]
+      "urls": [
+        "ghcr.io/aria-fx/aria-skills/usage-conformance:1.0.0"
+      ]
     }
   ],
-  "authors": ["Josh Garverick <josh.garverick@xebia.com>"],
+  "authors": [
+    "Josh Garverick <josh.garverick@xebia.com>"
+  ],
   "created_at": "2026-07-11T00:00:00Z"
 }

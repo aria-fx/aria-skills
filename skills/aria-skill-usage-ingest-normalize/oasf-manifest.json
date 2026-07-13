@@ -1,6 +1,6 @@
 {
   "name": "aria.dev/skills/usage-ingest-normalize",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Ingests raw LLM usage exports from provider and cloud sources and normalizes them into the shared NormalizedUsageRecord contract.",
   "triggers": [
     "Normalize this OpenAI usage export",

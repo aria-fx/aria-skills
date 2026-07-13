@@ -1,14 +1,22 @@
 {
   "name": "aria.dev/skills/usage-ingest-normalize",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "schema_version": "1.0.0",
   "description": "Ingests raw LLM usage exports from OpenAI, Anthropic, and Gemini across direct APIs, AWS Bedrock, GCP Vertex, and Azure OpenAI, normalizing them into the shared NormalizedUsageRecord contract.",
   "skills": [
-    { "id": 40701, "name": "analytics/usage/ingest" },
-    { "id": 40702, "name": "analytics/usage/normalize" }
+    {
+      "id": 40701,
+      "name": "analytics/usage/ingest"
+    },
+    {
+      "id": 40702,
+      "name": "analytics/usage/normalize"
+    }
   ],
   "domains": [
-    { "name": "platform/aria/finops" }
+    {
+      "name": "platform/aria/finops"
+    }
   ],
   "modules": [
     {
@@ -24,13 +32,19 @@
   "locators": [
     {
       "type": "source_code",
-      "urls": ["https://github.com/aria-fx/aria-skills/tree/main/skills/aria-skill-usage-ingest-normalize"]
+      "urls": [
+        "https://github.com/aria-fx/aria-skills/tree/main/skills/aria-skill-usage-ingest-normalize"
+      ]
     },
     {
       "type": "oci_artifact",
-      "urls": ["ghcr.io/aria-fx/aria-skills/usage-ingest-normalize:1.0.0"]
+      "urls": [
+        "ghcr.io/aria-fx/aria-skills/usage-ingest-normalize:1.0.0"
+      ]
     }
   ],
-  "authors": ["Josh Garverick <josh.garverick@xebia.com>"],
+  "authors": [
+    "Josh Garverick <josh.garverick@xebia.com>"
+  ],
   "created_at": "2026-07-11T00:00:00Z"
 }

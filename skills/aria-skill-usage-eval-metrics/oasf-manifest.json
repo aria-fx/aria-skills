@@ -1,6 +1,6 @@
 {
   "name": "aria.dev/skills/usage-eval-metrics",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Computes cost, token, latency, and error metrics over NormalizedUsageRecord data with grouping, period comparison, and anomaly detection.",
   "triggers": [
     "Compute usage metrics grouped by provider and model",

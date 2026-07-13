@@ -1,6 +1,6 @@
 {
   "name": "aria.dev/skills/usage-conformance",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Checks NormalizedUsageRecord data against governance policies (providers, models, regions, attribution, cost confidence) and evaluates scoped budget limits.",
   "triggers": [
     "Check our LLM usage against the approved model list",
