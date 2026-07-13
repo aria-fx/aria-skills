@@ -1,0 +1,12 @@
+{
+  "name": "aria.dev/skills/usage-ingest-normalize",
+  "version": "1.0.0",
+  "description": "Ingests raw LLM usage exports from provider and cloud sources and normalizes them into the shared NormalizedUsageRecord contract.",
+  "triggers": [
+    "Normalize this OpenAI usage export",
+    "Ingest Bedrock invocation logs into usage records",
+    "What usage adapters are supported?",
+    "Validate these normalized usage records"
+  ],
+  "usage": "Call ingest_usage_export with an adapter and raw rows; use list_supported_adapters to discover adapters and validate_normalized_records to check contract conformance."
+}

@@ -1,0 +1,12 @@
+{
+  "name": "aria.dev/skills/usage-reporting",
+  "version": "1.0.0",
+  "description": "Generates usage evaluation reports in Markdown or JSON from metrics, conformance, and anomaly results, plus plain-language findings summaries.",
+  "triggers": [
+    "Generate a usage report for last month",
+    "Give me a Markdown report of provider spend and anomalies",
+    "Summarize the findings from this usage evaluation",
+    "Export the usage evaluation as JSON"
+  ],
+  "usage": "Call generate_usage_report with metrics (and optional conformance, anomalies, format markdown|json, title); summarize_findings for a headline with severity counts."
+}

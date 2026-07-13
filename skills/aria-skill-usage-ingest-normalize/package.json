@@ -1,0 +1,15 @@
+{
+  "name": "@aria/skill-usage-ingest-normalize",
+  "version": "1.0.0",
+  "description": "ARIA skill: LLM provider/cloud usage export ingestion and normalization",
+  "type": "module",
+  "main": "server.mjs",
+  "bin": { "aria-skill-usage-ingest-normalize": "server.mjs" },
+  "scripts": {
+    "start": "node server.mjs",
+    "test": "node ../../scripts/run-node-test-coverage.mjs tests/"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.0"
+  }
+}

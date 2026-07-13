@@ -47,6 +47,38 @@
         "oasf_ref": "aria.dev/skills/scaffold@1.0.0",
         "sensitivity_tier": "internal"
       }
+    },
+    "aria-usage-ingest-normalize": {
+      "command": "node",
+      "args": ["../skills/aria-skill-usage-ingest-normalize/server.mjs"],
+      "metadata": {
+        "oasf_ref": "aria.dev/skills/usage-ingest-normalize@1.0.0",
+        "sensitivity_tier": "confidential"
+      }
+    },
+    "aria-usage-eval-metrics": {
+      "command": "node",
+      "args": ["../skills/aria-skill-usage-eval-metrics/server.mjs"],
+      "metadata": {
+        "oasf_ref": "aria.dev/skills/usage-eval-metrics@1.0.0",
+        "sensitivity_tier": "confidential"
+      }
+    },
+    "aria-usage-conformance": {
+      "command": "node",
+      "args": ["../skills/aria-skill-usage-conformance/server.mjs"],
+      "metadata": {
+        "oasf_ref": "aria.dev/skills/usage-conformance@1.0.0",
+        "sensitivity_tier": "confidential"
+      }
+    },
+    "aria-usage-reporting": {
+      "command": "node",
+      "args": ["../skills/aria-skill-usage-reporting/server.mjs"],
+      "metadata": {
+        "oasf_ref": "aria.dev/skills/usage-reporting@1.0.0",
+        "sensitivity_tier": "confidential"
+      }
     }
   },
   "agentCompositions": {
@@ -65,6 +97,16 @@
         "aria-dependency-scan",
         "aria-purview-sync",
         "aria-catalog"
+      ]
+    },
+    "provider-usage-evaluator": {
+      "oasf_ref": "aria.dev/agents/provider-usage-evaluator@1.0.0",
+      "mcp_config": "../agents/provider-usage-evaluator/mcp-config.json",
+      "required_servers": [
+        "aria-usage-ingest-normalize",
+        "aria-usage-eval-metrics",
+        "aria-usage-conformance",
+        "aria-usage-reporting"
       ]
     }
   }

@@ -1,0 +1,35 @@
+{
+  "name": "aria.dev/skills/usage-reporting",
+  "version": "1.0.0",
+  "schema_version": "1.0.0",
+  "description": "Generates provider and cloud usage evaluation reports in Markdown or JSON from metrics, conformance, and anomaly results, plus plain-language findings summaries with severity counts.",
+  "skills": [
+    { "id": 40707, "name": "analytics/usage/reporting" },
+    { "id": 40708, "name": "analytics/usage/summary" }
+  ],
+  "domains": [
+    { "name": "platform/aria/finops" }
+  ],
+  "modules": [
+    {
+      "type": "mcp_server",
+      "transport": "stdio",
+      "tools": [
+        "generate_usage_report",
+        "summarize_findings"
+      ]
+    }
+  ],
+  "locators": [
+    {
+      "type": "source_code",
+      "urls": ["https://github.com/aria-fx/aria-skills/tree/main/skills/aria-skill-usage-reporting"]
+    },
+    {
+      "type": "oci_artifact",
+      "urls": ["ghcr.io/aria-fx/aria-skills/usage-reporting:1.0.0"]
+    }
+  ],
+  "authors": ["Josh Garverick <josh.garverick@xebia.com>"],
+  "created_at": "2026-07-11T00:00:00Z"
+}

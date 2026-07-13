@@ -1,0 +1,15 @@
+{
+  "name": "@aria/skill-usage-reporting",
+  "version": "1.0.0",
+  "description": "ARIA skill: usage evaluation report generation (Markdown/JSON) and findings summaries",
+  "type": "module",
+  "main": "server.mjs",
+  "bin": { "aria-skill-usage-reporting": "server.mjs" },
+  "scripts": {
+    "start": "node server.mjs",
+    "test": "node ../../scripts/run-node-test-coverage.mjs tests/"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.0"
+  }
+}

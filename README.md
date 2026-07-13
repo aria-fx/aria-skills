@@ -23,6 +23,10 @@ Brand-aligned architecture view with orchestrator, governed skills, and speciali
 | **dependency-scan** | `aria.dev/skills/dependency-scan` | confidential | `scan_transitive_deps`, `check_ceiling_violations`, `detect_deprecated_deps`, `generate_compliance_report` |
 | **catalog** | `aria.dev/skills/catalog` | internal | `index_asset`, `search_assets`, `get_asset_manifest`, `list_versions`, `filter_by_governance` |
 | **scaffold** | `aria.dev/skills/scaffold` | internal | `scaffold_from_template`, `generate_oasf_record`, `suggest_skill_taxonomy`, `propose_governance_overlay` |
+| **usage-ingest-normalize** | `aria.dev/skills/usage-ingest-normalize` | confidential | `ingest_usage_export`, `list_supported_adapters`, `validate_normalized_records` |
+| **usage-eval-metrics** | `aria.dev/skills/usage-eval-metrics` | confidential | `compute_usage_metrics`, `compare_periods`, `detect_anomalies` |
+| **usage-conformance** | `aria.dev/skills/usage-conformance` | confidential | `check_governance_conformance`, `evaluate_budget_policy`, `list_policy_rules` |
+| **usage-reporting** | `aria.dev/skills/usage-reporting` | confidential | `generate_usage_report`, `summarize_findings` |
 
 ## Agents
 
@@ -34,6 +38,7 @@ Brand-aligned architecture view with orchestrator, governed skills, and speciali
 | **aria-super** | validate, catalog, scaffold, publish, dependency-scan, purview-sync | Cross-repo architecture and review agent for framework, gateway, and skills |
 | **gateway-contract-drift-reviewer** | validate, catalog, scaffold | Focused reviewer for gateway API/schema drift and compatibility risks |
 | **skill-lifecycle-reviewer** | scaffold, validate, publish, dependency-scan, purview-sync, catalog | Lifecycle governance reviewer for scaffold→validate→publish workflows |
+| **provider-usage-evaluator** | usage-ingest-normalize, usage-eval-metrics, usage-conformance, usage-reporting | LLM provider and cloud usage evaluation: ingest, metrics, conformance, reporting (see [docs/usage-eval-bundle.md](docs/usage-eval-bundle.md)) |
 
 ## Quick Start
 

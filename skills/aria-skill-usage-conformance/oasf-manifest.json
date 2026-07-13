@@ -1,0 +1,12 @@
+{
+  "name": "aria.dev/skills/usage-conformance",
+  "version": "1.0.0",
+  "description": "Checks NormalizedUsageRecord data against governance policies (providers, models, regions, attribution, cost confidence) and evaluates scoped budget limits.",
+  "triggers": [
+    "Check our LLM usage against the approved model list",
+    "Are any records running in non-approved regions?",
+    "Evaluate this month's spend against team budgets",
+    "Which tenants are over budget?"
+  ],
+  "usage": "Call check_governance_conformance with records and a policy object; evaluate_budget_policy with records and budgets [{scope,id,limit_usd}]; list_policy_rules to enumerate supported rules."
+}

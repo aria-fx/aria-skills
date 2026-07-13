@@ -1,0 +1,12 @@
+{
+  "name": "aria.dev/skills/usage-eval-metrics",
+  "version": "1.0.0",
+  "description": "Computes cost, token, latency, and error metrics over NormalizedUsageRecord data with grouping, period comparison, and anomaly detection.",
+  "triggers": [
+    "Compute usage metrics grouped by provider and model",
+    "Compare this month's LLM usage to last month",
+    "Detect anomalies in our Bedrock usage",
+    "What is our cost per 1k tokens by tenant?"
+  ],
+  "usage": "Call compute_usage_metrics with records and optional group_by dimensions; compare_periods for trend deltas; detect_anomalies with optional threshold overrides."
+}
